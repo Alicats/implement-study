@@ -20,6 +20,17 @@ public class MapperInvocationHandler implements InvocationHandler {
         return null;
     }
 
+    /**
+     * mybatis动态代理
+     *
+     * 代理对象代理接口实现类逻辑
+     *
+     * 1、创建SQL （select id,name,age from user where id = ?）
+     *
+     * - 获取返回参数集合
+     * - 获取表名
+     * - 获取请求参数集合
+     */
     private Object invokeSelect(Object proxy, Method method, Object[] args) {
         List<String> selectCols = getSelectCols(proxy,method,args)
         String sql = "SELECT * FROM user WHERE id = ?";

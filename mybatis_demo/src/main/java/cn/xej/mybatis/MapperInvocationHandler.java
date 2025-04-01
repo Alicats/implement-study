@@ -39,6 +39,7 @@ public class MapperInvocationHandler implements InvocationHandler {
      *  - 属性填充值
      *  - 若method返回List，需要获取泛型的具体类型
      */
+    
     private Object invokeSelect(Object proxy, Method method, Object[] args) {
         List<String> selectCols = getSelectCols(method);
         StringBuilder sb = new StringBuilder();

@@ -5,6 +5,7 @@ import cn.xej.mybatis.User;
 import cn.xej.mybatis.UserMapper;
 
 import java.sql.*;
+import java.util.List;
 
 public class Main {
 
@@ -14,13 +15,17 @@ public class Main {
     private static final String PASSWORD = "123456";
 
     public static void main(String[] args) {
-        MySqlSessionFactory sql = new MySqlSessionFactory();
-        UserMapper userMapper = sql.getMapper(UserMapper.class);
-        User user = userMapper.getUserById(1);
-        System.out.println("*************************");
-        System.out.println(user);
-        System.out.println(userMapper.toString());
-        System.out.println(userMapper.hashCode());
+        MySqlSessionFactory factory = new MySqlSessionFactory();
+        UserMapper userMapper = factory.getMapper(UserMapper.class);
+//        User user = userMapper.selectById(2);
+//        System.out.println(user);
+
+//        User user = userMapper.selectByNameAndAge("lisi", 12);
+//        System.out.println(user);
+
+        List<User> list = userMapper.selectByName("lisi");
+        System.out.println(list);
+
 //        User user = jdbcSelectId(2);
 //        System.out.println(user);
     }

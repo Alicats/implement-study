@@ -1,5 +1,6 @@
 package cn.xej.mybatis;
 
+@Table(name = "user")
 public class User {
     private int id;
     private String name;

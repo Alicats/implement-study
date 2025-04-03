@@ -9,9 +9,9 @@ import java.util.stream.Collectors;
 
 public class MapperInvocationHandler implements InvocationHandler {
 
-    private static final String URL = "jdbc:mysql://localhost:3306/mybatis_demo?useSSL=false&serverTimezone=UTC";
+    private static final String URL = "jdbc:mysql://10.89.0.11:30602/test?useSSL=false&serverTimezone=UTC";
     private static final String USER = "root";
-    private static final String PASSWORD = "123456";
+    private static final String PASSWORD = "uEXsn7NZrusBIGKe";
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {

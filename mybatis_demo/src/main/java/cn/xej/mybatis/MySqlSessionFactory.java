@@ -4,10 +4,6 @@ import java.lang.reflect.Proxy;
 
 public class MySqlSessionFactory {
 
-    // 数据库连接信息
-    private static final String URL = "jdbc:mysql://localhost:3306/mybatis_demo?useSSL=false&serverTimezone=UTC";
-    private static final String USER = "root";
-    private static final String PASSWORD = "123456";
 
     public <T> T getMapper(Class<T> mapperClass) {
         //jdk 动态代理

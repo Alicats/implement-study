@@ -3,49 +3,73 @@ package cn.xej.api.service;
 import cn.xej.api.model.Product;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class ProductService {
     
-    private List<Product> products = new ArrayList<>();
+    private final Map<Long, Product> productMap = new ConcurrentHashMap<>();
+    private final AtomicLong counter = new AtomicLong();
     
     public ProductService() {
-        // 初始化一些产品数据
-        products.add(new Product(1L, "笔记本电脑", 5999.99));
-        products.add(new Product(2L, "手机", 3999.99));
-        products.add(new Product(3L, "平板电脑", 2999.99));
+        // 初始化一些示例数据
+        productMap.put(counter.incrementAndGet(), new Product(counter.get(), "笔记本电脑", 5999.99));
+        productMap.put(counter.incrementAndGet(), new Product(counter.get(), "手机", 3999.99));
     }
     
+    /**
+     * 获取所有产品
+     * @return 产品列表
+     */
     public List<Product> getAllProducts() {
-        return products;
+        return new ArrayList<>(productMap.values());
     }
     
+    /**
+     * 根据ID获取产品
+     * @param id 产品ID
+     * @return 产品信息
+     */
     public Optional<Product> getProductById(Long id) {
-        return products.stream().filter(product -> product.getId().equals(id)).findFirst();
+        return Optional.ofNullable(productMap.get(id));
     }
     
+    /**
+     * 创建新产品
+     * @param product 产品信息
+     * @return 创建的产品
+     */
     public Product createProduct(Product product) {
-        // 设置ID（简单起见，实际项目中应该使用更复杂的ID生成策略）
-        product.setId((long) (products.size() + 1));
-        products.add(product);
+        Long id = counter.incrementAndGet();
+        product.setId(id);
+        productMap.put(id, product);
         return product;
     }
     
-    public Optional<Product> updateProduct(Long id, Product updatedProduct) {
-        Optional<Product> existingProduct = getProductById(id);
-        if (existingProduct.isPresent()) {
-            Product product = existingProduct.get();
-            product.setName(updatedProduct.getName());
-            product.setPrice(updatedProduct.getPrice());
+    /**
+     * 更新产品信息
+     * @param id 产品ID
+     * @param product 更新的产品信息
+     * @return 更新后的产品信息
+     */
+    public Optional<Product> updateProduct(Long id, Product product) {
+        if (productMap.containsKey(id)) {
+            product.setId(id);
+            productMap.put(id, product);
             return Optional.of(product);
+        } else {
+            return Optional.empty();
         }
-        return Optional.empty();
     }
     
+    /**
+     * 删除产品
+     * @param id 产品ID
+     * @return 是否删除成功
+     */
     public boolean deleteProduct(Long id) {
-        return products.removeIf(product -> product.getId().equals(id));
+        return productMap.remove(id) != null;
     }
 }

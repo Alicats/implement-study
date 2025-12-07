@@ -3,49 +3,49 @@ package cn.xej.api.service;
 import cn.xej.api.model.User;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class UserService {
     
-    private List<User> users = new ArrayList<>();
+    private final Map<Long, User> userMap = new ConcurrentHashMap<>();
+    private final AtomicLong counter = new AtomicLong();
     
     public UserService() {
         // 初始化一些用户数据
-        users.add(new User(1L, "张三", "zhangsan@example.com"));
-        users.add(new User(2L, "李四", "lisi@example.com"));
-        users.add(new User(3L, "王五", "wangwu@example.com"));
+        userMap.put(counter.incrementAndGet(), new User(counter.get(), "张三", "zhangsan@example.com"));
+        userMap.put(counter.incrementAndGet(), new User(counter.get(), "李四", "lisi@example.com"));
+        userMap.put(counter.incrementAndGet(), new User(counter.get(), "王五", "wangwu@example.com"));
     }
     
     public List<User> getAllUsers() {
-        return users;
+        return new ArrayList<>(userMap.values());
     }
     
     public Optional<User> getUserById(Long id) {
-        return users.stream().filter(user -> user.getId().equals(id)).findFirst();
+        return Optional.ofNullable(userMap.get(id));
     }
     
     public User createUser(User user) {
-        // 设置ID（简单起见，实际项目中应该使用更复杂的ID生成策略）
-        user.setId((long) (users.size() + 1));
-        users.add(user);
+        Long id = counter.incrementAndGet();
+        user.setId(id);
+        userMap.put(id, user);
         return user;
     }
     
-    public Optional<User> updateUser(Long id, User updatedUser) {
-        Optional<User> existingUser = getUserById(id);
-        if (existingUser.isPresent()) {
-            User user = existingUser.get();
-            user.setName(updatedUser.getName());
-            user.setEmail(updatedUser.getEmail());
+    public Optional<User> updateUser(Long id, User user) {
+        if (userMap.containsKey(id)) {
+            user.setId(id);
+            userMap.put(id, user);
             return Optional.of(user);
+        } else {
+            return Optional.empty();
         }
-        return Optional.empty();
     }
     
     public boolean deleteUser(Long id) {
-        return users.removeIf(user -> user.getId().equals(id));
+        return userMap.remove(id) != null;
     }
 }

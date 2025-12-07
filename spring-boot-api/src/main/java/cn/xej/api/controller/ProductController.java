@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,7 +47,7 @@ public class ProductController {
      * @return 创建的产品
      */
     @PostMapping
-    public Product createProduct(@RequestBody Product product) {
+    public Product createProduct(@Valid @RequestBody Product product) {
         return productService.createProduct(product);
     }
     
@@ -57,7 +58,7 @@ public class ProductController {
      * @return 更新后的产品信息
      */
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable Long id, @RequestBody Product product) {
+    public ResponseEntity<Product> updateProduct(@PathVariable Long id, @Valid @RequestBody Product product) {
         Optional<Product> updatedProduct = productService.updateProduct(id, product);
         if (updatedProduct.isPresent()) {
             return ResponseEntity.ok(updatedProduct.get());

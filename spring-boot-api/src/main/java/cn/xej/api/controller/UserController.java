@@ -15,11 +15,17 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping
 public class UserController {
     
     @Autowired
     private UserService userService;
+
+    @PostMapping("CreateUser")
+    public CreateUserResponse createUser(@Validated @RequestBody CreateUserRequest request) {
+        log.info("api create user request:{}", JSON.toJSONString(request));
+        return new CreateUserResponse("alicat-123");
+    }
     
 //    /**
 //     * 获取所有用户
@@ -46,11 +52,7 @@ public class UserController {
 //    }
     
 
-    @PostMapping("CreateUser")
-    public CreateUserResponse createUser(@Validated @RequestBody CreateUserRequest request) {
-        log.info("api create user request:{}", JSON.toJSONString(request));
-        return new CreateUserResponse("alicat-123");
-    }
+
     
 //    /**
 //     * 更新用户信息

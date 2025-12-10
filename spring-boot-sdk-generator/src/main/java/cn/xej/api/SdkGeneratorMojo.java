@@ -124,7 +124,7 @@ public class SdkGeneratorMojo extends AbstractMojo {
             Configuration configuration = new ConfigurationBuilder()
                     .forPackages(controllerPackage)
                     .addClassLoaders(classLoader)
-                    .setScanners(Scanners.TypesAnnotated);
+                    .setScanners(Scanners.TypesAnnotated, Scanners.SubTypes);
 
             Reflections reflections = new Reflections(configuration);
 
@@ -143,12 +143,17 @@ public class SdkGeneratorMojo extends AbstractMojo {
             Set<Class<?>> controllerClasses = reflections.getTypesAnnotatedWith(RestController.class);
             getLog().info("找到的@RestController注解的类数量: " + controllerClasses.size());
 
-            // 输出找到的Controller类
-            for (Class<?> clazz : controllerClasses) {
-                getLog().info("找到的Controller类: " + clazz.getName());
+            // 如果找到Controller，生成ApiClient和models
+            if (!controllerClasses.isEmpty()) {
+                // 创建models目录
+                File modelsDir = new File(packageDir, "models");
+                if (!modelsDir.exists()) {
+                    modelsDir.mkdirs();
+                }
+                getLog().info("创建models目录: " + modelsDir.getAbsolutePath());
 
-                // 生成SDK相关文件
-                generateControllerSdk(clazz, packageDir);
+                // 生成统一的ApiClient
+                generateApiClient(controllerClasses, packageDir, modelsDir);
             }
 
             // 如果没有找到Controller，尝试手动扫描
@@ -163,9 +168,6 @@ public class SdkGeneratorMojo extends AbstractMojo {
                             if (clazz.isAnnotationPresent(RestController.class)) {
                                 controllerClasses.add(clazz);
                                 getLog().info("手动找到Controller类: " + typeName);
-
-                                // 生成SDK相关文件
-                                generateControllerSdk(clazz, packageDir);
                             }
                         } catch (ClassNotFoundException e) {
                             getLog().warn("无法加载类: " + typeName, e);
@@ -173,6 +175,19 @@ public class SdkGeneratorMojo extends AbstractMojo {
                             getLog().warn("类定义缺失: " + typeName, e);
                         }
                     }
+                }
+
+                // 如果手动找到了Controller，生成ApiClient和models
+                if (!controllerClasses.isEmpty()) {
+                    // 创建models目录
+                    File modelsDir = new File(packageDir, "models");
+                    if (!modelsDir.exists()) {
+                        modelsDir.mkdirs();
+                    }
+                    getLog().info("创建models目录: " + modelsDir.getAbsolutePath());
+
+                    // 生成统一的ApiClient
+                    generateApiClient(controllerClasses, packageDir, modelsDir);
                 }
             }
 
@@ -190,7 +205,6 @@ public class SdkGeneratorMojo extends AbstractMojo {
             Thread.currentThread().setContextClassLoader(ClassLoader.getSystemClassLoader());
         }
     }
-
 
 
     /**
@@ -223,62 +237,71 @@ public class SdkGeneratorMojo extends AbstractMojo {
         }
     }
 
-
     /**
-     * 生成Controller的SDK文件
+     * 生成统一的ApiClient类
      */
-    private void generateControllerSdk(Class<?> controllerClass, File outputDir) throws Exception {
-        String className = controllerClass.getSimpleName();
-        String fileName = className + "Sdk.java";
+    private void generateApiClient(Set<Class<?>> controllerClasses, File outputDir, File modelsDir) throws Exception {
+        String fileName = "ApiClient.java";
         File outputFile = new File(outputDir, fileName);
 
-        StringBuilder sdkCode = new StringBuilder();
-        sdkCode.append("package ").append(packageName).append(";\n\n");
-        sdkCode.append("import org.springframework.web.client.RestTemplate;\n");
-        sdkCode.append("import org.springframework.http.*;\n");
-        sdkCode.append("import ").append(controllerClass.getName()).append(";\n\n");
+        StringBuilder apiClientCode = new StringBuilder();
+        apiClientCode.append("package ").append(packageName).append("; ");
+        apiClientCode.append("import org.springframework.web.client.RestTemplate;\n");
+        apiClientCode.append("import org.springframework.http.*;\n");
+        apiClientCode.append("import java.util.Map;");
+        apiClientCode.append("import java.util.HashMap;");
+        apiClientCode.append("import ").append(packageName).append(".models.*;\n\n");
 
-        sdkCode.append("/**\n * ").append(className).append(" SDK客户端\n */\n");
-        sdkCode.append("public class ").append(className).append("Sdk {\n");
-        sdkCode.append("    private final RestTemplate restTemplate;\n");
-        sdkCode.append("    private final String baseUrl;\n\n");
+        apiClientCode.append("/**\n");
+        apiClientCode.append(" * 统一API客户端\n");
+        apiClientCode.append(" */\n");
+        apiClientCode.append("public class ApiClient {\n");
+        apiClientCode.append("    private final RestTemplate restTemplate;\n");
+        apiClientCode.append("    private final String baseUrl;\n\n");
 
-        sdkCode.append("    public ").append(className).append("Sdk(String baseUrl) {\n");
-        sdkCode.append("        this.restTemplate = new RestTemplate();\n");
-        sdkCode.append("        this.baseUrl = baseUrl.endsWith(\"/\") ? baseUrl : baseUrl + \"/\";\n");
-        sdkCode.append("    }\n\n");
+        apiClientCode.append("    public ApiClient(String baseUrl) {\n");
+        apiClientCode.append("        this.restTemplate = new RestTemplate();\n");
+        apiClientCode.append("        this.baseUrl = baseUrl.endsWith(\"/\") ? baseUrl : baseUrl + \"/\";\n");
+        apiClientCode.append("    }\n\n");
+
+        // 生成所有Controller的方法
+        for (Class<?> controllerClass : controllerClasses) {
+            getLog().info("处理Controller类: " + controllerClass.getName());
+            generateControllerMethods(controllerClass, apiClientCode, modelsDir);
+        }
+
+        apiClientCode.append("}\n");
+
+        // 写入文件
+        java.nio.file.Files.write(outputFile.toPath(), apiClientCode.toString().getBytes("UTF-8"));
+        getLog().info("生成ApiClient文件: " + outputFile.getAbsolutePath());
+    }
+
+    /**
+     * 生成Controller的所有方法到ApiClient中
+     */
+    private void generateControllerMethods(Class<?> controllerClass, StringBuilder apiClientCode, File modelsDir) throws Exception {
+        // 获取类级别的@RequestMapping注解
+        String classMapping = "";
+        if (controllerClass.isAnnotationPresent(RequestMapping.class)) {
+            RequestMapping classAnnotation = controllerClass.getAnnotation(RequestMapping.class);
+            if (classAnnotation.value().length > 0) {
+                classMapping = classAnnotation.value()[0];
+            }
+        }
 
         // 生成方法
         for (java.lang.reflect.Method method : controllerClass.getDeclaredMethods()) {
             if (isRequestMappingMethod(method)) {
-                generateMethodSdk(method, sdkCode);
+                generateMethodApi(method, classMapping, apiClientCode, modelsDir);
             }
         }
-
-        sdkCode.append("}\n");
-
-        // 写入文件
-        java.nio.file.Files.write(outputFile.toPath(), sdkCode.toString().getBytes("UTF-8"));
-        getLog().info("生成SDK文件: " + outputFile.getAbsolutePath());
-    }
-
-
-    /**
-     * 检查方法是否是请求映射方法
-     */
-    private boolean isRequestMappingMethod(java.lang.reflect.Method method) {
-        return method.isAnnotationPresent(RequestMapping.class) ||
-                method.isAnnotationPresent(GetMapping.class) ||
-                method.isAnnotationPresent(PostMapping.class) ||
-                method.isAnnotationPresent(PutMapping.class) ||
-                method.isAnnotationPresent(DeleteMapping.class) ||
-                method.isAnnotationPresent(PatchMapping.class);
     }
 
     /**
-     * 生成方法SDK
+     * 生成API方法到ApiClient中
      */
-    private void generateMethodSdk(java.lang.reflect.Method method, StringBuilder sdkCode) {
+    private void generateMethodApi(java.lang.reflect.Method method, String classMapping, StringBuilder apiClientCode, File modelsDir) throws Exception {
         // 获取映射信息
         String mappingValue = "";
         String httpMethod = "POST"; // 默认POST
@@ -309,36 +332,276 @@ public class SdkGeneratorMojo extends AbstractMojo {
             httpMethod = "PATCH";
         }
 
+        // 组合完整的URL路径
+        String fullMapping = classMapping + mappingValue;
+        
         // 生成方法签名
         String methodName = method.getName();
-        sdkCode.append("    public ").append(method.getReturnType().getSimpleName()).append(" ")
-                .append(methodName).append("(");
+        apiClientCode.append("    public ").append(method.getReturnType().getSimpleName()).append(" ");
+        apiClientCode.append(methodName).append("(");
 
         // 添加参数
         Class<?>[] paramTypes = method.getParameterTypes();
+        java.lang.reflect.Parameter[] parameters = method.getParameters();
+        
+        // 生成模型类
+        generateModelClasses(method, modelsDir);
+        
         for (int i = 0; i < paramTypes.length; i++) {
-            if (i > 0) sdkCode.append(", ");
-            sdkCode.append(paramTypes[i].getSimpleName()).append(" arg").append(i);
+            if (i > 0) apiClientCode.append(", ");
+            apiClientCode.append(paramTypes[i].getSimpleName()).append(" ").append(parameters[i].getName());
         }
 
-        sdkCode.append(") {\n");
-        sdkCode.append("        String url = baseUrl + \"").append(mappingValue).append("\";\n");
-        sdkCode.append("        HttpHeaders headers = new HttpHeaders();\n");
-        sdkCode.append("        headers.setContentType(MediaType.APPLICATION_JSON);\n\n");
+        apiClientCode.append(") {\n");
+        apiClientCode.append("        String url = baseUrl + \"");
+        apiClientCode.append(fullMapping);
+        apiClientCode.append("\";\n");
+        apiClientCode.append("        HttpHeaders headers = new HttpHeaders();\n");
+        apiClientCode.append("        headers.setContentType(MediaType.APPLICATION_JSON);\n\n");
 
         // 创建请求体
         if (paramTypes.length > 0) {
-            sdkCode.append("        HttpEntity<").append(paramTypes[0].getSimpleName()).append("> request = \n");
-            sdkCode.append("            new HttpEntity<>(arg0, headers);\n\n");
+            apiClientCode.append("        HttpEntity<");
+            apiClientCode.append(paramTypes[0].getSimpleName());
+            apiClientCode.append("> request = \n");
+            apiClientCode.append("            new HttpEntity<");
+            apiClientCode.append(paramTypes[0].getSimpleName());
+            apiClientCode.append(">(").append(parameters[0].getName()).append(", headers);\n\n");
         } else {
-            sdkCode.append("        HttpEntity<String> request = new HttpEntity<>(headers);\n\n");
+            apiClientCode.append("        HttpEntity<String> request = new HttpEntity<>(headers);\n\n");
         }
 
-        sdkCode.append("        ResponseEntity<").append(method.getReturnType().getSimpleName()).append("> response = \n");
-        sdkCode.append("            restTemplate.exchange(url, HttpMethod.").append(httpMethod).append(", request, ")
-                .append(method.getReturnType().getSimpleName()).append(".class);\n\n");
+        apiClientCode.append("        ResponseEntity<");
+        apiClientCode.append(method.getReturnType().getSimpleName());
+        apiClientCode.append("> response = \n");
+        apiClientCode.append("            restTemplate.exchange(url, HttpMethod.");
+        apiClientCode.append(httpMethod);
+        apiClientCode.append(", request, ");
+        apiClientCode.append(method.getReturnType().getSimpleName());
+        apiClientCode.append(".class);\n\n");
 
-        sdkCode.append("        return response.getBody();\n");
-        sdkCode.append("    }\n\n");
+        apiClientCode.append("        return response.getBody();\n");
+        apiClientCode.append("    }\n\n");
+    }
+
+    /**
+     * 生成模型类（请求和响应）
+     */
+    private void generateModelClasses(java.lang.reflect.Method method, File modelsDir) throws Exception {
+        String methodName = method.getName();
+        
+        // 生成请求模型（示例：CreateUserRequest）
+        String requestClassName = capitalizeFirstLetter(methodName) + "Request";
+        generateRequestModel(method, requestClassName, modelsDir);
+        
+        // 生成响应模型（示例：CreateUserResponse）
+        String responseClassName = capitalizeFirstLetter(methodName) + "Response";
+        generateResponseModel(method, responseClassName, modelsDir);
+        
+        // 生成业务对象模型（示例：User）
+        generateBusinessModels(method, modelsDir);
+    }
+
+    /**
+     * 生成请求模型类
+     */
+    private void generateRequestModel(java.lang.reflect.Method method, String className, File modelsDir) throws Exception {
+        File outputFile = new File(modelsDir, className + ".java");
+        
+        // 如果文件已存在，跳过
+        if (outputFile.exists()) {
+            getLog().info("模型类已存在，跳过生成: " + outputFile.getAbsolutePath());
+            return;
+        }
+        
+        StringBuilder modelCode = new StringBuilder();
+        modelCode.append("package ").append(packageName).append(".models;\n\n");
+        modelCode.append("import java.io.Serializable;\n");
+        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n\n");
+        
+        modelCode.append("/**\n");
+        modelCode.append(" * ").append(className).append(" 请求模型\n");
+        modelCode.append(" */\n");
+        modelCode.append("public class ").append(className).append(" implements Serializable {\n");
+        modelCode.append("    private static final long serialVersionUID = 1L;\n\n");
+        
+        // 添加示例字段
+        modelCode.append("    @JsonProperty(\"id\")\n");
+        modelCode.append("    private Long id;\n\n");
+        modelCode.append("    @JsonProperty(\"name\")\n");
+        modelCode.append("    private String name;\n\n");
+        
+        // 添加getter和setter
+        modelCode.append("    public Long getId() {\n");
+        modelCode.append("        return id;\n");
+        modelCode.append("    }\n");
+        modelCode.append("    public void setId(Long id) {\n");
+        modelCode.append("        this.id = id;\n");
+        modelCode.append("    }\n");
+        
+        modelCode.append("    public String getName() {\n");
+        modelCode.append("        return name;\n");
+        modelCode.append("    }\n");
+        modelCode.append("    public void setName(String name) {\n");
+        modelCode.append("        this.name = name;\n");
+        modelCode.append("    }\n");
+        
+        modelCode.append("}\n");
+        
+        // 写入文件
+        java.nio.file.Files.write(outputFile.toPath(), modelCode.toString().getBytes("UTF-8"));
+        getLog().info("生成请求模型类: " + outputFile.getAbsolutePath());
+    }
+    
+    /**
+     * 生成响应模型类
+     */
+    private void generateResponseModel(java.lang.reflect.Method method, String className, File modelsDir) throws Exception {
+        File outputFile = new File(modelsDir, className + ".java");
+        
+        // 如果文件已存在，跳过
+        if (outputFile.exists()) {
+            getLog().info("模型类已存在，跳过生成: " + outputFile.getAbsolutePath());
+            return;
+        }
+        
+        StringBuilder modelCode = new StringBuilder();
+        modelCode.append("package ").append(packageName).append(".models;\n\n");
+        modelCode.append("import java.io.Serializable;\n");
+        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n\n");
+        
+        modelCode.append("/**\n");
+        modelCode.append(" * ").append(className).append(" 响应模型\n");
+        modelCode.append(" */\n");
+        modelCode.append("public class ").append(className).append(" implements Serializable {\n");
+        modelCode.append("    private static final long serialVersionUID = 1L;\n\n");
+        
+        // 添加示例字段
+        modelCode.append("    @JsonProperty(\"success\")\n");
+        modelCode.append("    private boolean success;\n\n");
+        modelCode.append("    @JsonProperty(\"message\")\n");
+        modelCode.append("    private String message;\n\n");
+        modelCode.append("    @JsonProperty(\"data\")\n");
+        modelCode.append("    private Object data;\n\n");
+        
+        // 添加getter和setter
+        modelCode.append("    public boolean isSuccess() {\n");
+        modelCode.append("        return success;\n");
+        modelCode.append("    }\n");
+        modelCode.append("    public void setSuccess(boolean success) {\n");
+        modelCode.append("        this.success = success;\n");
+        modelCode.append("    }\n");
+        
+        modelCode.append("    public String getMessage() {\n");
+        modelCode.append("        return message;\n");
+        modelCode.append("    }\n");
+        modelCode.append("    public void setMessage(String message) {\n");
+        modelCode.append("        this.message = message;\n");
+        modelCode.append("    }\n");
+        
+        modelCode.append("    public Object getData() {\n");
+        modelCode.append("        return data;\n");
+        modelCode.append("    }\n");
+        modelCode.append("    public void setData(Object data) {\n");
+        modelCode.append("        this.data = data;\n");
+        modelCode.append("    }\n");
+        
+        modelCode.append("}\n");
+        
+        // 写入文件
+        java.nio.file.Files.write(outputFile.toPath(), modelCode.toString().getBytes("UTF-8"));
+        getLog().info("生成响应模型类: " + outputFile.getAbsolutePath());
+    }
+    
+    /**
+     * 生成业务对象模型类
+     */
+    private void generateBusinessModels(java.lang.reflect.Method method, File modelsDir) throws Exception {
+        // 根据方法名生成业务对象类名（示例：User）
+        String methodName = method.getName();
+        String businessObjectName = methodName.replaceAll("^(get|create|update|delete)", "");
+        
+        // 如果方法名不以CRUD开头，使用方法名作为业务对象名
+        if (businessObjectName.isEmpty()) {
+            businessObjectName = methodName;
+        }
+        
+        String className = capitalizeFirstLetter(businessObjectName);
+        File outputFile = new File(modelsDir, className + ".java");
+        
+        // 如果文件已存在，跳过
+        if (outputFile.exists()) {
+            getLog().info("业务对象类已存在，跳过生成: " + outputFile.getAbsolutePath());
+            return;
+        }
+        
+        StringBuilder modelCode = new StringBuilder();
+        modelCode.append("package ").append(packageName).append(".models;\n\n");
+        modelCode.append("import java.io.Serializable;\n");
+        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n\n");
+        
+        modelCode.append("/**\n");
+        modelCode.append(" * ").append(className).append(" 业务对象模型\n");
+        modelCode.append(" */\n");
+        modelCode.append("public class ").append(className).append(" implements Serializable {\n");
+        modelCode.append("    private static final long serialVersionUID = 1L;\n\n");
+        
+        // 添加示例字段
+        modelCode.append("    @JsonProperty(\"id\")\n");
+        modelCode.append("    private Long id;\n\n");
+        modelCode.append("    @JsonProperty(\"name\")\n");
+        modelCode.append("    private String name;\n\n");
+        modelCode.append("    @JsonProperty(\"createdAt\")\n");
+        modelCode.append("    private String createdAt;\n\n");
+        
+        // 添加getter和setter
+        modelCode.append("    public Long getId() {\n");
+        modelCode.append("        return id;\n");
+        modelCode.append("    }\n");
+        modelCode.append("    public void setId(Long id) {\n");
+        modelCode.append("        this.id = id;\n");
+        modelCode.append("    }\n");
+        
+        modelCode.append("    public String getName() {\n");
+        modelCode.append("        return name;\n");
+        modelCode.append("    }\n");
+        modelCode.append("    public void setName(String name) {\n");
+        modelCode.append("        this.name = name;\n");
+        modelCode.append("    }\n");
+        
+        modelCode.append("    public String getCreatedAt() {\n");
+        modelCode.append("        return createdAt;\n");
+        modelCode.append("    }\n");
+        modelCode.append("    public void setCreatedAt(String createdAt) {\n");
+        modelCode.append("        this.createdAt = createdAt;\n");
+        modelCode.append("    }\n");
+        
+        modelCode.append("}\n");
+        
+        // 写入文件
+        java.nio.file.Files.write(outputFile.toPath(), modelCode.toString().getBytes("UTF-8"));
+        getLog().info("生成业务对象模型类: " + outputFile.getAbsolutePath());
+    }
+    
+    /**
+     * 将字符串首字母大写
+     */
+    private String capitalizeFirstLetter(String str) {
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+        return str.substring(0, 1).toUpperCase() + str.substring(1);
+    }
+
+    /**
+     * 检查方法是否是请求映射方法
+     */
+    private boolean isRequestMappingMethod(java.lang.reflect.Method method) {
+        return method.isAnnotationPresent(RequestMapping.class) ||
+                method.isAnnotationPresent(GetMapping.class) ||
+                method.isAnnotationPresent(PostMapping.class) ||
+                method.isAnnotationPresent(PutMapping.class) ||
+                method.isAnnotationPresent(DeleteMapping.class) ||
+                method.isAnnotationPresent(PatchMapping.class);
     }
 }

@@ -69,7 +69,7 @@
                 <configuration>
                     <outputDirectory>${project.build.directory}/generate-sdk</outputDirectory>
                     <packageName>cn.xej.api</packageName>
-                    <controllerPackage>cn.xej.api.controller</controllerPackage>
+                    <controllerPackage>cn.xej.api.controller.api</controllerPackage>
                 </configuration>
             </plugin>
             <!-- 添加编译器插件配置 -->

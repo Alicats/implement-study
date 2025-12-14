@@ -1,4 +1,4 @@
-package cn.xej.api.controller;
+package cn.xej.api.controller.api;
 
 import cn.xej.api.request.CreateUserRequest;
 import cn.xej.api.response.CreateUserResponse;
@@ -11,12 +11,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import cn.xej.api.request.DescribeUsersResponse;
+import cn.xej.api.model.User;
+import java.util.List;
 
 
 @Slf4j
 @RestController
 @RequestMapping
-public class UserController {
+public class UserApiController {
     
     @Autowired
     private UserService userService;
@@ -27,14 +30,15 @@ public class UserController {
         return new CreateUserResponse("alicat-123");
     }
     
-//    /**
-//     * 获取所有用户
-//     * @return 用户列表
-//     */
-//    @GetMapping
-//    public List<User> getAllUsers() {
-//        return userService.getAllUsers();
-//    }
+   /**
+    * 获取所有用户
+    * @return 用户列表
+    */
+   @PostMapping("DescribeUsers")
+   public DescribeUsersResponse describeUsers() {
+        List<User> users = userService.getAllUsers();
+       return new DescribeUsersResponse(users);
+   }
 //
 //    /**
 //     * 根据ID获取用户

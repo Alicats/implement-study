@@ -17,6 +17,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -105,10 +106,6 @@ public class SdkGeneratorMojo extends AbstractMojo {
         // 添加项目的依赖到类路径
         addProjectDependenciesToClasspath(urls);
 
-        getLog().info("类路径URL数量: " + urls.size());
-        for (URL url : urls) {
-            getLog().info("类路径URL: " + url.toString());
-        }
 
         // 创建URLClassLoader - 使用当前线程的类加载器作为父加载器
         URLClassLoader classLoader = new URLClassLoader(
@@ -128,20 +125,21 @@ public class SdkGeneratorMojo extends AbstractMojo {
 
             Reflections reflections = new Reflections(configuration);
 
-            // 先列出所有扫描到的类型，以便调试
-            Set<String> allTypes = reflections.getAllTypes();
-            getLog().info("扫描到的所有类型数量: " + allTypes.size());
-
-            // 输出所有扫描到的类型，便于调试
-            for (String typeName : allTypes) {
-                if (typeName.startsWith(controllerPackage)) {
-                    getLog().info("扫描到的类型: " + typeName);
-                }
-            }
-
             // 查找@RestController注解的类
             Set<Class<?>> controllerClasses = reflections.getTypesAnnotatedWith(RestController.class);
-            getLog().info("找到的@RestController注解的类数量: " + controllerClasses.size());
+            // 过滤掉不在指定包内的Controller类
+            Set<Class<?>> filteredControllerClasses = new HashSet<>();
+            for (Class<?> controllerClass : controllerClasses) {
+                if (controllerClass.getPackage().getName().equals(controllerPackage)) {
+                    filteredControllerClasses.add(controllerClass);
+                }
+            }
+            controllerClasses = filteredControllerClasses;
+            
+            // 输出扫描到的@RestController注解的类，便于调试
+            for (Class<?> controllerClass : controllerClasses) {
+                getLog().info("扫描到的@RestController注解的类: " + controllerClass.getName());
+            }
 
             // 如果找到Controller，生成ApiClient和models
             if (!controllerClasses.isEmpty()) {
@@ -155,51 +153,6 @@ public class SdkGeneratorMojo extends AbstractMojo {
                 // 生成统一的ApiClient
                 generateApiClient(controllerClasses, packageDir, modelsDir);
             }
-
-            // 如果没有找到Controller，尝试手动扫描
-            if (controllerClasses.isEmpty()) {
-                getLog().warn("未通过注解扫描找到Controller，尝试手动扫描类路径...");
-
-                // 手动扫描所有类
-                for (String typeName : allTypes) {
-                    if (typeName.startsWith(controllerPackage)) {
-                        try {
-                            Class<?> clazz = classLoader.loadClass(typeName);
-                            if (clazz.isAnnotationPresent(RestController.class)) {
-                                controllerClasses.add(clazz);
-                                getLog().info("手动找到Controller类: " + typeName);
-                            }
-                        } catch (ClassNotFoundException e) {
-                            getLog().warn("无法加载类: " + typeName, e);
-                        } catch (NoClassDefFoundError e) {
-                            getLog().warn("类定义缺失: " + typeName, e);
-                        }
-                    }
-                }
-
-                // 如果手动找到了Controller，生成ApiClient和models
-                if (!controllerClasses.isEmpty()) {
-                    // 创建models目录
-                    File modelsDir = new File(packageDir, "models");
-                    if (!modelsDir.exists()) {
-                        modelsDir.mkdirs();
-                    }
-                    getLog().info("创建models目录: " + modelsDir.getAbsolutePath());
-
-                    // 生成统一的ApiClient
-                    generateApiClient(controllerClasses, packageDir, modelsDir);
-                }
-            }
-
-            // 如果仍然没有找到Controller，提供更详细的错误信息
-            if (controllerClasses.isEmpty()) {
-                getLog().warn("在包 " + controllerPackage + " 中未找到任何 @RestController 注解的类");
-                getLog().info("请确认:");
-                getLog().info("1. controllerPackage 配置是否正确: " + controllerPackage);
-                getLog().info("2. 相关Controller类是否已编译到 " + projectOutputDirectory);
-                getLog().info("3. Controller类是否正确使用了 @RestController 注解");
-            }
-
         } finally {
             // 恢复原始的上下文类加载器
             Thread.currentThread().setContextClassLoader(ClassLoader.getSystemClassLoader());
@@ -212,11 +165,6 @@ public class SdkGeneratorMojo extends AbstractMojo {
      */
     private void addProjectDependenciesToClasspath(List<URL> urls) throws MojoFailureException {
         try {
-//            List<String> classpathElements = project.getRuntimeClasspathElements();
-//            if (classpathElements == null) {
-//                classpathElements = project.getCompileClasspathElements();
-//            }
-
             List<String> classpathElements = project.getCompileClasspathElements();
 
             for (String element : classpathElements) {

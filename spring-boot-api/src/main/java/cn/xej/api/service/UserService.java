@@ -15,13 +15,17 @@ public class UserService {
     
     public UserService() {
         // 初始化一些用户数据
-        userMap.put(counter.incrementAndGet(), new User(counter.get(), "张三", "zhangsan@example.com"));
-        userMap.put(counter.incrementAndGet(), new User(counter.get(), "李四", "lisi@example.com"));
-        userMap.put(counter.incrementAndGet(), new User(counter.get(), "王五", "wangwu@example.com"));
+        userMap.put(counter.incrementAndGet(), new User());
+        userMap.put(counter.incrementAndGet(), new User());
+        userMap.put(counter.incrementAndGet(), new User());
     }
     
     public List<User> getAllUsers() {
-        return new ArrayList<>(userMap.values());
+        User user = new User();
+        user.setId(1L);
+        user.setName("aaa");
+        user.setEmail("20320@qq.com");
+        return Collections.singletonList(user);
     }
     
     public Optional<User> getUserById(Long id) {

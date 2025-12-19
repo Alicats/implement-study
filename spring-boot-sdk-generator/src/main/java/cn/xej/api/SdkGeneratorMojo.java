@@ -13,6 +13,8 @@ import org.reflections.util.ConfigurationBuilder;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -351,7 +353,7 @@ public class SdkGeneratorMojo extends AbstractMojo {
     }
 
     /**
-     * 生成请求模型类
+ * 生成请求模型类
      */
     private void generateRequestModel(java.lang.reflect.Method method, String className, File modelsDir) throws Exception {
         File outputFile = new File(modelsDir, className + ".java");
@@ -365,7 +367,8 @@ public class SdkGeneratorMojo extends AbstractMojo {
         StringBuilder modelCode = new StringBuilder();
         modelCode.append("package ").append(packageName).append(".models;\n\n");
         modelCode.append("import java.io.Serializable;\n");
-        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n\n");
+        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n");
+        modelCode.append("import java.util.*;\n\n");
         
         modelCode.append("/**\n");
         modelCode.append(" * ").append(className).append(" 请求模型\n");
@@ -373,26 +376,65 @@ public class SdkGeneratorMojo extends AbstractMojo {
         modelCode.append("public class ").append(className).append(" implements Serializable {\n");
         modelCode.append("    private static final long serialVersionUID = 1L;\n\n");
         
-        // 添加示例字段
-        modelCode.append("    @JsonProperty(\"id\")\n");
-        modelCode.append("    private Long id;\n\n");
-        modelCode.append("    @JsonProperty(\"name\")\n");
-        modelCode.append("    private String name;\n\n");
+        // 查找@RequestBody注解的参数
+        java.lang.reflect.Parameter[] parameters = method.getParameters();
+        Class<?> requestBodyType = null;
+        for (java.lang.reflect.Parameter parameter : parameters) {
+            if (parameter.isAnnotationPresent(RequestBody.class)) {
+                requestBodyType = parameter.getType();
+                break;
+            }
+        }
         
-        // 添加getter和setter
-        modelCode.append("    public Long getId() {\n");
-        modelCode.append("        return id;\n");
-        modelCode.append("    }\n");
-        modelCode.append("    public void setId(Long id) {\n");
-        modelCode.append("        this.id = id;\n");
-        modelCode.append("    }\n");
-        
-        modelCode.append("    public String getName() {\n");
-        modelCode.append("        return name;\n");
-        modelCode.append("    }\n");
-        modelCode.append("    public void setName(String name) {\n");
-        modelCode.append("        this.name = name;\n");
-        modelCode.append("    }\n");
+        // 如果找到@RequestBody参数，提取其字段
+        if (requestBodyType != null && !requestBodyType.isPrimitive() && !requestBodyType.getName().startsWith("java.lang.")) {
+            // 获取请求体类型的所有字段
+            java.lang.reflect.Field[] fields = requestBodyType.getDeclaredFields();
+            for (java.lang.reflect.Field field : fields) {
+                // 跳过静态字段
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                
+                String fieldName = field.getName();
+                Type fieldType = field.getGenericType();
+                String fieldTypeName = getFieldTypeName(fieldType);
+                
+                // 添加字段
+                modelCode.append("    @JsonProperty(\"").append(fieldName).append("\")\n");
+                modelCode.append("    private ").append(fieldTypeName).append(" ").append(fieldName).append(";\n\n");
+            }
+            
+            // 添加getter和setter
+            for (java.lang.reflect.Field field : fields) {
+                // 跳过静态字段
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                
+                String fieldName = field.getName();
+                Type fieldType = field.getGenericType();
+                String fieldTypeName = getFieldTypeName(fieldType);
+                String capitalizedFieldName = capitalizeFirstLetter(fieldName);
+                
+                // 添加getter
+                if (fieldTypeName.equals("boolean")) {
+                    modelCode.append("    public boolean is").append(capitalizedFieldName).append("() {\n");
+                } else {
+                    modelCode.append("    public ").append(fieldTypeName).append(" get").append(capitalizedFieldName).append("() {\n");
+                }
+                modelCode.append("        return ").append(fieldName).append(";\n");
+                modelCode.append("    }\n\n");
+                
+                // 添加setter
+                modelCode.append("    public void set").append(capitalizedFieldName).append("(").append(fieldTypeName).append(" ").append(fieldName).append(") {\n");
+                modelCode.append("        this.").append(fieldName).append(" = ").append(fieldName).append(";\n");
+                modelCode.append("    }\n\n");
+            }
+        } else {
+            // 如果没有@RequestBody参数或参数是基本类型，生成空的请求模型
+            modelCode.append("    // 无请求体参数\n");
+        }
         
         modelCode.append("}\n");
         
@@ -416,7 +458,8 @@ public class SdkGeneratorMojo extends AbstractMojo {
         StringBuilder modelCode = new StringBuilder();
         modelCode.append("package ").append(packageName).append(".models;\n\n");
         modelCode.append("import java.io.Serializable;\n");
-        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n\n");
+        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n");
+        modelCode.append("import java.util.*;\n\n");
         
         modelCode.append("/**\n");
         modelCode.append(" * ").append(className).append(" 响应模型\n");
@@ -424,35 +467,73 @@ public class SdkGeneratorMojo extends AbstractMojo {
         modelCode.append("public class ").append(className).append(" implements Serializable {\n");
         modelCode.append("    private static final long serialVersionUID = 1L;\n\n");
         
-        // 添加示例字段
-        modelCode.append("    @JsonProperty(\"success\")\n");
-        modelCode.append("    private boolean success;\n\n");
-        modelCode.append("    @JsonProperty(\"message\")\n");
-        modelCode.append("    private String message;\n\n");
-        modelCode.append("    @JsonProperty(\"data\")\n");
-        modelCode.append("    private Object data;\n\n");
+        // 获取方法的返回类型
+        Class<?> returnType = method.getReturnType();
         
-        // 添加getter和setter
-        modelCode.append("    public boolean isSuccess() {\n");
-        modelCode.append("        return success;\n");
-        modelCode.append("    }\n");
-        modelCode.append("    public void setSuccess(boolean success) {\n");
-        modelCode.append("        this.success = success;\n");
-        modelCode.append("    }\n");
-        
-        modelCode.append("    public String getMessage() {\n");
-        modelCode.append("        return message;\n");
-        modelCode.append("    }\n");
-        modelCode.append("    public void setMessage(String message) {\n");
-        modelCode.append("        this.message = message;\n");
-        modelCode.append("    }\n");
-        
-        modelCode.append("    public Object getData() {\n");
-        modelCode.append("        return data;\n");
-        modelCode.append("    }\n");
-        modelCode.append("    public void setData(Object data) {\n");
-        modelCode.append("        this.data = data;\n");
-        modelCode.append("    }\n");
+        // 如果返回类型是自定义类型（不是基本类型或java.lang包下的类型），提取其字段
+        if (returnType != null && !returnType.isPrimitive() && !returnType.getName().startsWith("java.lang.")) {
+            // 获取返回类型的所有字段
+            java.lang.reflect.Field[] fields = returnType.getDeclaredFields();
+            for (java.lang.reflect.Field field : fields) {
+                // 跳过静态字段
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                
+                String fieldName = field.getName();
+                Type fieldType = field.getGenericType();
+                String fieldTypeName = getFieldTypeName(fieldType);
+                
+                // 添加字段
+                modelCode.append("    @JsonProperty(\"").append(fieldName).append("\")\n");
+                modelCode.append("    private ").append(fieldTypeName).append(" ").append(fieldName).append(";\n\n");
+            }
+            
+            // 添加getter和setter
+            for (java.lang.reflect.Field field : fields) {
+                // 跳过静态字段
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                
+                String fieldName = field.getName();
+                Type fieldType = field.getGenericType();
+                String fieldTypeName = getFieldTypeName(fieldType);
+                String capitalizedFieldName = capitalizeFirstLetter(fieldName);
+                
+                // 添加getter
+                if (fieldTypeName.equals("boolean")) {
+                    modelCode.append("    public boolean is").append(capitalizedFieldName).append("() {\n");
+                } else {
+                    modelCode.append("    public ").append(fieldTypeName).append(" get").append(capitalizedFieldName).append("() {\n");
+                }
+                modelCode.append("        return ").append(fieldName).append(";\n");
+                modelCode.append("    }\n\n");
+                
+                // 添加setter
+                modelCode.append("    public void set").append(capitalizedFieldName).append("(").append(fieldTypeName).append(" ").append(fieldName).append(") {\n");
+                modelCode.append("        this.").append(fieldName).append(" = ").append(fieldName).append(";\n");
+                modelCode.append("    }\n\n");
+            }
+        } else {
+            // 如果返回类型是基本类型或简单类型，生成包含该类型的响应模型
+            String fieldType = returnType.getSimpleName();
+            modelCode.append("    @JsonProperty(\"result\")\n");
+            modelCode.append("    private ").append(fieldType).append(" result;\n\n");
+            
+            // 添加getter和setter
+            if (fieldType.equals("boolean")) {
+                modelCode.append("    public boolean isResult() {\n");
+            } else {
+                modelCode.append("    public ").append(fieldType).append(" getResult() {\n");
+            }
+            modelCode.append("        return result;\n");
+            modelCode.append("    }\n\n");
+            
+            modelCode.append("    public void setResult(").append(fieldType).append(" result) {\n");
+            modelCode.append("        this.result = result;\n");
+            modelCode.append("    }\n\n");
+        }
         
         modelCode.append("}\n");
         
@@ -465,16 +546,77 @@ public class SdkGeneratorMojo extends AbstractMojo {
      * 生成业务对象模型类
      */
     private void generateBusinessModels(java.lang.reflect.Method method, File modelsDir) throws Exception {
-        // 根据方法名生成业务对象类名（示例：User）
-        String methodName = method.getName();
-        String businessObjectName = methodName.replaceAll("^(get|create|update|delete)", "");
+        Set<Class<?>> businessClasses = new HashSet<>();
         
-        // 如果方法名不以CRUD开头，使用方法名作为业务对象名
-        if (businessObjectName.isEmpty()) {
-            businessObjectName = methodName;
+        // 分析方法参数中的自定义类型
+        java.lang.reflect.Parameter[] parameters = method.getParameters();
+        for (java.lang.reflect.Parameter parameter : parameters) {
+            Class<?> paramType = parameter.getType();
+            collectBusinessClasses(paramType, businessClasses);
         }
         
-        String className = capitalizeFirstLetter(businessObjectName);
+        // 分析返回类型中的自定义类型
+        Class<?> returnType = method.getReturnType();
+        collectBusinessClasses(returnType, businessClasses);
+        
+        // 为所有收集到的自定义类型生成模型类
+        for (Class<?> businessClass : businessClasses) {
+            String className = businessClass.getSimpleName();
+            generateBusinessModelClass(businessClass, className, modelsDir);
+        }
+    }
+    
+    /**
+     * 收集业务对象类
+     */
+    private void collectBusinessClasses(Class<?> type, Set<Class<?>> businessClasses) {
+        // 如果是基本类型或java.lang包下的类型，跳过
+        if (type == null || type.isPrimitive() || type.getName().startsWith("java.lang.") || 
+            type.getName().startsWith("java.util.") || type.getName().startsWith("java.time.")) {
+            return;
+        }
+        
+        // 获取类名
+        String simpleName = type.getSimpleName();
+        
+        // 如果不是请求类或响应类，添加到业务类集合
+        if (!simpleName.endsWith("Request") && !simpleName.endsWith("Response")) {
+            businessClasses.add(type);
+        }
+            
+        // 分析当前类型的字段（无论是否是请求/响应类，都需要分析字段以提取业务对象）
+        java.lang.reflect.Field[] fields = type.getDeclaredFields();
+        for (java.lang.reflect.Field field : fields) {
+            Class<?> fieldType = field.getType();
+            
+            // 如果是数组类型，分析其元素类型
+            if (fieldType.isArray()) {
+                collectBusinessClasses(fieldType.getComponentType(), businessClasses);
+            }
+            // 如果是集合类型，分析其泛型参数
+            else if (java.util.Collection.class.isAssignableFrom(fieldType)) {
+                java.lang.reflect.Type genericType = field.getGenericType();
+                if (genericType instanceof java.lang.reflect.ParameterizedType) {
+                    java.lang.reflect.ParameterizedType paramType = (java.lang.reflect.ParameterizedType) genericType;
+                    java.lang.reflect.Type[] typeArguments = paramType.getActualTypeArguments();
+                    for (java.lang.reflect.Type typeArg : typeArguments) {
+                        if (typeArg instanceof Class) {
+                            collectBusinessClasses((Class<?>) typeArg, businessClasses);
+                        }
+                    }
+                }
+            }
+            // 否则，直接收集字段类型
+            else {
+                collectBusinessClasses(fieldType, businessClasses);
+            }
+        }
+    }
+    
+    /**
+     * 生成单个业务对象模型类
+     */
+    private void generateBusinessModelClass(Class<?> businessClass, String className, File modelsDir) throws Exception {
         File outputFile = new File(modelsDir, className + ".java");
         
         // 如果文件已存在，跳过
@@ -486,7 +628,8 @@ public class SdkGeneratorMojo extends AbstractMojo {
         StringBuilder modelCode = new StringBuilder();
         modelCode.append("package ").append(packageName).append(".models;\n\n");
         modelCode.append("import java.io.Serializable;\n");
-        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n\n");
+        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n");
+        modelCode.append("import java.util.*;\n\n");
         
         modelCode.append("/**\n");
         modelCode.append(" * ").append(className).append(" 业务对象模型\n");
@@ -494,41 +637,82 @@ public class SdkGeneratorMojo extends AbstractMojo {
         modelCode.append("public class ").append(className).append(" implements Serializable {\n");
         modelCode.append("    private static final long serialVersionUID = 1L;\n\n");
         
-        // 添加示例字段
-        modelCode.append("    @JsonProperty(\"id\")\n");
-        modelCode.append("    private Long id;\n\n");
-        modelCode.append("    @JsonProperty(\"name\")\n");
-        modelCode.append("    private String name;\n\n");
-        modelCode.append("    @JsonProperty(\"createdAt\")\n");
-        modelCode.append("    private String createdAt;\n\n");
+        // 获取业务类的所有字段
+        java.lang.reflect.Field[] fields = businessClass.getDeclaredFields();
+        for (java.lang.reflect.Field field : fields) {
+            // 跳过静态字段
+            if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                continue;
+            }
+            
+            String fieldName = field.getName();
+            Type fieldType = field.getGenericType();
+            String fieldTypeName = getFieldTypeName(fieldType);
+            
+            // 添加字段
+            modelCode.append("    @JsonProperty(\"").append(fieldName).append("\")\n");
+            modelCode.append("    private ").append(fieldTypeName).append(" ").append(fieldName).append(";\n\n");
+        }
         
         // 添加getter和setter
-        modelCode.append("    public Long getId() {\n");
-        modelCode.append("        return id;\n");
-        modelCode.append("    }\n");
-        modelCode.append("    public void setId(Long id) {\n");
-        modelCode.append("        this.id = id;\n");
-        modelCode.append("    }\n");
-        
-        modelCode.append("    public String getName() {\n");
-        modelCode.append("        return name;\n");
-        modelCode.append("    }\n");
-        modelCode.append("    public void setName(String name) {\n");
-        modelCode.append("        this.name = name;\n");
-        modelCode.append("    }\n");
-        
-        modelCode.append("    public String getCreatedAt() {\n");
-        modelCode.append("        return createdAt;\n");
-        modelCode.append("    }\n");
-        modelCode.append("    public void setCreatedAt(String createdAt) {\n");
-        modelCode.append("        this.createdAt = createdAt;\n");
-        modelCode.append("    }\n");
+        for (java.lang.reflect.Field field : fields) {
+            // 跳过静态字段
+            if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                continue;
+            }
+            
+            String fieldName = field.getName();
+            Type fieldType = field.getGenericType();
+            String fieldTypeName = getFieldTypeName(fieldType);
+            String capitalizedFieldName = capitalizeFirstLetter(fieldName);
+            
+            // 添加getter
+            if (fieldTypeName.equals("boolean")) {
+                modelCode.append("    public boolean is").append(capitalizedFieldName).append("() {\n");
+            } else {
+                modelCode.append("    public ").append(fieldTypeName).append(" get").append(capitalizedFieldName).append("() {\n");
+            }
+            modelCode.append("        return ").append(fieldName).append(";\n");
+            modelCode.append("    }\n\n");
+            
+            // 添加setter
+            modelCode.append("    public void set").append(capitalizedFieldName).append("(").append(fieldTypeName).append(" ").append(fieldName).append(") {\n");
+            modelCode.append("        this.").append(fieldName).append(" = ").append(fieldName).append(";\n");
+            modelCode.append("    }\n\n");
+        }
         
         modelCode.append("}\n");
         
         // 写入文件
         java.nio.file.Files.write(outputFile.toPath(), modelCode.toString().getBytes("UTF-8"));
         getLog().info("生成业务对象模型类: " + outputFile.getAbsolutePath());
+    }
+    
+    /**
+     * 获取完整的字段类型名称，包括泛型参数
+     */
+    private String getFieldTypeName(Type type) {
+        if (type instanceof Class) {
+            Class<?> clazz = (Class<?>) type;
+            return clazz.getSimpleName();
+        } else if (type instanceof ParameterizedType) {
+            ParameterizedType paramType = (ParameterizedType) type;
+            Type rawType = paramType.getRawType();
+            Type[] typeArgs = paramType.getActualTypeArguments();
+            
+            StringBuilder typeName = new StringBuilder();
+            typeName.append(getFieldTypeName(rawType));
+            typeName.append("<");
+            
+            for (int i = 0; i < typeArgs.length; i++) {
+                if (i > 0) typeName.append(", ");
+                typeName.append(getFieldTypeName(typeArgs[i]));
+            }
+            
+            typeName.append(">");
+            return typeName.toString();
+        }
+        return type.toString();
     }
     
     /**

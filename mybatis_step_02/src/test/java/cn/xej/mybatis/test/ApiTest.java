@@ -9,14 +9,9 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 
-
-
 public class ApiTest {
     private Logger logger = LoggerFactory.getLogger(ApiTest.class);
 
-    /**
-     * 创建简单的映射器代理工厂
-     */
     @Test
     public void test_MapperProxyFactory() {
         MapperProxyFactory<IUserDao> factory = new MapperProxyFactory<>(IUserDao.class);

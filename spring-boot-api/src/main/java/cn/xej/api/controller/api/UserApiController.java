@@ -1,18 +1,20 @@
 package cn.xej.api.controller.api;
 
 import cn.xej.api.request.CreateUserRequest;
+import cn.xej.api.request.DescribeUsersRequest;
 import cn.xej.api.response.CreateUserResponse;
 import cn.xej.api.service.UserService;
 import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import cn.xej.api.request.DescribeUsersResponse;
 import cn.xej.api.model.User;
+
+import javax.validation.Valid;
 import java.util.List;
 
 
@@ -25,7 +27,7 @@ public class UserApiController {
     private UserService userService;
 
     @PostMapping("CreateUser")
-    public CreateUserResponse createUser(@Validated @RequestBody CreateUserRequest request) {
+    public CreateUserResponse createUser(@Valid @RequestBody CreateUserRequest request) {
         log.info("api create user request:{}", JSON.toJSONString(request));
         return new CreateUserResponse("alicat-123");
     }
@@ -35,10 +37,12 @@ public class UserApiController {
     * @return 用户列表
     */
    @PostMapping("DescribeUsers")
-   public DescribeUsersResponse describeUsers() {
+   public DescribeUsersResponse describeUsers(@Valid @RequestBody DescribeUsersRequest request) {
         List<User> users = userService.getAllUsers();
        return new DescribeUsersResponse(users);
    }
+
+
 //
 //    /**
 //     * 根据ID获取用户

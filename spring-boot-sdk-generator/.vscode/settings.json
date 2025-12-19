@@ -1,0 +1,7 @@
+{
+  "maven.settingsFile": "D:\\JAVA\\MAVEN\\apache-maven-3.6.3\\conf\\settings.xml",
+  "maven.executable.path": "D:\\JAVA\\MAVEN\\apache-maven-3.6.3\\bin\\mvn.cmd",
+  "maven.executable.preferMavenWrapper": false,
+  "java.configuration.maven.userSettings": "D:\\JAVA\\MAVEN\\apache-maven-3.6.3\\conf\\settings.xml",
+  "java.configuration.maven.globalSettings": "D:\\JAVA\\MAVEN\\apache-maven-3.6.3\\conf\\settings.xml"
+}

@@ -1,0 +1,42 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "Main",
+            "request": "launch",
+            "mainClass": "cn.xej.Main",
+            "projectName": "generator-maven-plugin"
+        },
+        {
+            "type": "java",
+            "name": "Main(1)",
+            "request": "launch",
+            "mainClass": "cn.xej.Main",
+            "projectName": "mybatis_demo"
+        },
+        {
+            "type": "java",
+            "name": "SpringBootApiApplication",
+            "request": "launch",
+            "mainClass": "cn.xej.api.SpringBootApiApplication",
+            "projectName": "spring-boot-api"
+        },
+        {
+            "type": "java",
+            "name": "SdkTest",
+            "request": "launch",
+            "mainClass": "cn.xej.api.sdktest.SdkTest",
+            "projectName": "spring-boot-api"
+        }
+    ]
+}

@@ -29,7 +29,7 @@ public class UserApiController {
     @PostMapping("CreateUser")
     public CreateUserResponse createUser(@Valid @RequestBody CreateUserRequest request) {
         log.info("api create user request:{}", JSON.toJSONString(request));
-        return new CreateUserResponse("alicat-123");
+        return new CreateUserResponse(request.name);
     }
     
    /**
@@ -39,7 +39,10 @@ public class UserApiController {
    @PostMapping("DescribeUsers")
    public DescribeUsersResponse describeUsers(@Valid @RequestBody DescribeUsersRequest request) {
         List<User> users = userService.getAllUsers();
-       return new DescribeUsersResponse(users);
+        DescribeUsersResponse response = new DescribeUsersResponse();
+        response.setUserSet(users);
+        response.setTotalCount(users.size());
+       return response;
    }
 
 

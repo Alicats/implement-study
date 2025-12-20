@@ -195,24 +195,46 @@ public class SdkGeneratorMojo extends AbstractMojo {
         File outputFile = new File(outputDir, fileName);
 
         StringBuilder apiClientCode = new StringBuilder();
-        apiClientCode.append("package ").append(packageName).append("; ");
-        apiClientCode.append("import org.springframework.web.client.RestTemplate;\n");
-        apiClientCode.append("import org.springframework.http.*;\n");
-        apiClientCode.append("import java.util.Map;");
-        apiClientCode.append("import java.util.HashMap;");
-        apiClientCode.append("import ").append(packageName).append(".models.*;\n\n");
-
+        
+        // 生成包声明
+        apiClientCode.append("package ").append(packageName).append(";\n");
+        
+        // 生成导入语句
+        apiClientCode.append("import okhttp3.*;\n");
+        apiClientCode.append("import com.fasterxml.jackson.databind.ObjectMapper;\n");
+        apiClientCode.append("import java.io.IOException;\n");
+        apiClientCode.append("import java.util.Map;\n");
+        apiClientCode.append("import java.util.HashMap;\n");
+        apiClientCode.append("import ").append(packageName).append(".models.*;\n");
+        
+        // 添加空行
+        apiClientCode.append("\n");
+        
+        // 生成类注释
         apiClientCode.append("/**\n");
         apiClientCode.append(" * 统一API客户端\n");
         apiClientCode.append(" */\n");
+        
+        // 生成类声明
         apiClientCode.append("public class ApiClient {\n");
-        apiClientCode.append("    private final RestTemplate restTemplate;\n");
-        apiClientCode.append("    private final String baseUrl;\n\n");
-
+        
+        // 生成类成员
+        apiClientCode.append("    private final OkHttpClient okHttpClient;\n");
+        apiClientCode.append("    private final ObjectMapper objectMapper;\n");
+        apiClientCode.append("    private final String baseUrl;\n");
+        
+        // 添加空行
+        apiClientCode.append("\n");
+        
+        // 生成构造函数
         apiClientCode.append("    public ApiClient(String baseUrl) {\n");
-        apiClientCode.append("        this.restTemplate = new RestTemplate();\n");
+        apiClientCode.append("        this.okHttpClient = new OkHttpClient();\n");
+        apiClientCode.append("        this.objectMapper = new ObjectMapper();\n");
         apiClientCode.append("        this.baseUrl = baseUrl.endsWith(\"/\") ? baseUrl : baseUrl + \"/\";\n");
-        apiClientCode.append("    }\n\n");
+        apiClientCode.append("    }\n");
+        
+        // 添加空行
+        apiClientCode.append("\n");
 
         // 生成所有Controller的方法
         for (Class<?> controllerClass : controllerClasses) {
@@ -220,7 +242,7 @@ public class SdkGeneratorMojo extends AbstractMojo {
             generateControllerMethods(controllerClass, apiClientCode, modelsDir);
         }
 
-        apiClientCode.append("}\n");
+        apiClientCode.append("}");
 
         // 写入文件
         java.nio.file.Files.write(outputFile.toPath(), apiClientCode.toString().getBytes("UTF-8"));
@@ -302,36 +324,42 @@ public class SdkGeneratorMojo extends AbstractMojo {
             apiClientCode.append(paramTypes[i].getSimpleName()).append(" ").append(parameters[i].getName());
         }
 
-        apiClientCode.append(") {\n");
+        apiClientCode.append(") throws IOException {\n");
         apiClientCode.append("        String url = baseUrl + \"");
         apiClientCode.append(fullMapping);
         apiClientCode.append("\";\n");
-        apiClientCode.append("        HttpHeaders headers = new HttpHeaders();\n");
-        apiClientCode.append("        headers.setContentType(MediaType.APPLICATION_JSON);\n\n");
+        apiClientCode.append("        RequestBody requestBody = null;\n");
 
         // 创建请求体
         if (paramTypes.length > 0) {
-            apiClientCode.append("        HttpEntity<");
-            apiClientCode.append(paramTypes[0].getSimpleName());
-            apiClientCode.append("> request = \n");
-            apiClientCode.append("            new HttpEntity<");
-            apiClientCode.append(paramTypes[0].getSimpleName());
-            apiClientCode.append(">(").append(parameters[0].getName()).append(", headers);\n\n");
-        } else {
-            apiClientCode.append("        HttpEntity<String> request = new HttpEntity<>(headers);\n\n");
+            apiClientCode.append("        requestBody = RequestBody.create(");
+            apiClientCode.append("objectMapper.writeValueAsString(");
+            apiClientCode.append(parameters[0].getName());
+            apiClientCode.append("), MediaType.parse(\"application/json; charset=utf-8\"));\n\n");
         }
 
-        apiClientCode.append("        ResponseEntity<");
-        apiClientCode.append(method.getReturnType().getSimpleName());
-        apiClientCode.append("> response = \n");
-        apiClientCode.append("            restTemplate.exchange(url, HttpMethod.");
-        apiClientCode.append(httpMethod);
-        apiClientCode.append(", request, ");
-        apiClientCode.append(method.getReturnType().getSimpleName());
-        apiClientCode.append(".class);\n\n");
+        // 创建请求
+        apiClientCode.append("        Request.Builder okHttpRequestBuilder = new Request.Builder()\n");
+        apiClientCode.append("                .url(url)\n");
 
-        apiClientCode.append("        return response.getBody();\n");
+        // 设置请求方法
+        apiClientCode.append("                .method(\"").append(httpMethod).append("\", requestBody);\n");
+        apiClientCode.append("        Request okHttpRequest = okHttpRequestBuilder.build();\n\n");
+
+        // 执行请求
+        apiClientCode.append("        try (Response response = okHttpClient.newCall(okHttpRequest).execute()) {\n");
+        apiClientCode.append("            if (!response.isSuccessful()) {\n");
+        apiClientCode.append("                throw new IOException(\"Unexpected code \" + response);\n");
+        apiClientCode.append("            }\n\n");
+
+        // 解析响应
+        apiClientCode.append("            String responseBody = response.body().string();\n");
+        apiClientCode.append("            return objectMapper.readValue(responseBody, ");
+        apiClientCode.append(method.getReturnType().getSimpleName());
+        apiClientCode.append(".class);\n");
+        apiClientCode.append("        }\n");
         apiClientCode.append("    }\n\n");
+
     }
 
     /**
@@ -367,7 +395,7 @@ public class SdkGeneratorMojo extends AbstractMojo {
         StringBuilder modelCode = new StringBuilder();
         modelCode.append("package ").append(packageName).append(".models;\n\n");
         modelCode.append("import java.io.Serializable;\n");
-        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n");
+        modelCode.append("\n");
         modelCode.append("import java.util.*;\n\n");
         
         modelCode.append("/**\n");
@@ -401,7 +429,7 @@ public class SdkGeneratorMojo extends AbstractMojo {
                 String fieldTypeName = getFieldTypeName(fieldType);
                 
                 // 添加字段
-                modelCode.append("    @JsonProperty(\"").append(fieldName).append("\")\n");
+
                 modelCode.append("    private ").append(fieldTypeName).append(" ").append(fieldName).append(";\n\n");
             }
             
@@ -458,7 +486,7 @@ public class SdkGeneratorMojo extends AbstractMojo {
         StringBuilder modelCode = new StringBuilder();
         modelCode.append("package ").append(packageName).append(".models;\n\n");
         modelCode.append("import java.io.Serializable;\n");
-        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n");
+        modelCode.append("\n");
         modelCode.append("import java.util.*;\n\n");
         
         modelCode.append("/**\n");
@@ -467,73 +495,81 @@ public class SdkGeneratorMojo extends AbstractMojo {
         modelCode.append("public class ").append(className).append(" implements Serializable {\n");
         modelCode.append("    private static final long serialVersionUID = 1L;\n\n");
         
-        // 获取方法的返回类型
-        Class<?> returnType = method.getReturnType();
+        // 获取返回类型
+        Type actualReturnType = method.getGenericReturnType();
         
-        // 如果返回类型是自定义类型（不是基本类型或java.lang包下的类型），提取其字段
-        if (returnType != null && !returnType.isPrimitive() && !returnType.getName().startsWith("java.lang.")) {
-            // 获取返回类型的所有字段
-            java.lang.reflect.Field[] fields = returnType.getDeclaredFields();
-            for (java.lang.reflect.Field field : fields) {
-                // 跳过静态字段
-                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
-                    continue;
+        
+        // 检查实际返回类型是否是自定义类型
+        if (actualReturnType instanceof Class) {
+            Class<?> actualReturnClass = (Class<?>) actualReturnType;
+            // 如果是自定义类型（不是基本类型、包装类型、标准库类型或数组）
+            if (!actualReturnClass.isPrimitive() && !actualReturnClass.getName().startsWith("java.lang.") && 
+                !actualReturnClass.getName().startsWith("java.util.") && !actualReturnClass.isArray()) {
+                // 获取原始响应类的字段
+                java.lang.reflect.Field[] fields = actualReturnClass.getDeclaredFields();
+                for (java.lang.reflect.Field field : fields) {
+                    // 跳过静态字段和transient字段
+                    if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) || 
+                        java.lang.reflect.Modifier.isTransient(field.getModifiers())) {
+                        continue;
+                    }
+                    
+                    String fieldName = field.getName();
+                    Type fieldType = field.getGenericType();
+                    String fieldTypeName = getFieldTypeName(fieldType);
+                    
+                    // 添加字段
+                    modelCode.append("    private ").append(fieldTypeName).append(" ").append(fieldName).append(";\n\n");
                 }
                 
-                String fieldName = field.getName();
-                Type fieldType = field.getGenericType();
-                String fieldTypeName = getFieldTypeName(fieldType);
-                
-                // 添加字段
-                modelCode.append("    @JsonProperty(\"").append(fieldName).append("\")\n");
-                modelCode.append("    private ").append(fieldTypeName).append(" ").append(fieldName).append(";\n\n");
-            }
-            
-            // 添加getter和setter
-            for (java.lang.reflect.Field field : fields) {
-                // 跳过静态字段
-                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
-                    continue;
+                // 添加getter和setter
+                for (java.lang.reflect.Field field : fields) {
+                    // 跳过静态字段和transient字段
+                    if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) || 
+                        java.lang.reflect.Modifier.isTransient(field.getModifiers())) {
+                        continue;
+                    }
+                    
+                    String fieldName = field.getName();
+                    Type fieldType = field.getGenericType();
+                    String fieldTypeName = getFieldTypeName(fieldType);
+                    String capitalizedFieldName = capitalizeFirstLetter(fieldName);
+                    
+                    // 添加getter
+                    if (fieldTypeName.equals("boolean")) {
+                        modelCode.append("    public boolean is").append(capitalizedFieldName).append("() {\n");
+                    } else {
+                        modelCode.append("    public ").append(fieldTypeName).append(" get").append(capitalizedFieldName).append("() {\n");
+                    }
+                    modelCode.append("        return ").append(fieldName).append(";\n");
+                    modelCode.append("    }\n\n");
+                    
+                    // 添加setter
+                    modelCode.append("    public void set").append(capitalizedFieldName).append("(").append(fieldTypeName).append(" ").append(fieldName).append(") {\n");
+                    modelCode.append("        this.").append(fieldName).append(" = ").append(fieldName).append(";\n");
+                    modelCode.append("    }\n\n");
                 }
                 
-                String fieldName = field.getName();
-                Type fieldType = field.getGenericType();
-                String fieldTypeName = getFieldTypeName(fieldType);
-                String capitalizedFieldName = capitalizeFirstLetter(fieldName);
-                
-                // 添加getter
-                if (fieldTypeName.equals("boolean")) {
-                    modelCode.append("    public boolean is").append(capitalizedFieldName).append("() {\n");
-                } else {
-                    modelCode.append("    public ").append(fieldTypeName).append(" get").append(capitalizedFieldName).append("() {\n");
+                // 递归生成所有字段类型的模型
+                for (java.lang.reflect.Field field : fields) {
+                    Type fieldType = field.getGenericType();
+                    if (fieldType instanceof Class) {
+                        generateNestedModels((Class<?>) fieldType, modelsDir);
+                    } else if (fieldType instanceof ParameterizedType) {
+                        ParameterizedType parameterizedType = (ParameterizedType) fieldType;
+                        Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+                        for (Type actualTypeArgument : actualTypeArguments) {
+                            if (actualTypeArgument instanceof Class) {
+                                generateNestedModels((Class<?>) actualTypeArgument, modelsDir);
+                            } else if (actualTypeArgument instanceof ParameterizedType) {
+                                Class<?> rawType = (Class<?>) ((ParameterizedType) actualTypeArgument).getRawType();
+                                generateNestedModels(rawType, modelsDir);
+                            }
+                        }
+                    }
                 }
-                modelCode.append("        return ").append(fieldName).append(";\n");
-                modelCode.append("    }\n\n");
-                
-                // 添加setter
-                modelCode.append("    public void set").append(capitalizedFieldName).append("(").append(fieldTypeName).append(" ").append(fieldName).append(") {\n");
-                modelCode.append("        this.").append(fieldName).append(" = ").append(fieldName).append(";\n");
-                modelCode.append("    }\n\n");
-            }
-        } else {
-            // 如果返回类型是基本类型或简单类型，生成包含该类型的响应模型
-            String fieldType = returnType.getSimpleName();
-            modelCode.append("    @JsonProperty(\"result\")\n");
-            modelCode.append("    private ").append(fieldType).append(" result;\n\n");
-            
-            // 添加getter和setter
-            if (fieldType.equals("boolean")) {
-                modelCode.append("    public boolean isResult() {\n");
-            } else {
-                modelCode.append("    public ").append(fieldType).append(" getResult() {\n");
-            }
-            modelCode.append("        return result;\n");
-            modelCode.append("    }\n\n");
-            
-            modelCode.append("    public void setResult(").append(fieldType).append(" result) {\n");
-            modelCode.append("        this.result = result;\n");
-            modelCode.append("    }\n\n");
-        }
+            } 
+        } 
         
         modelCode.append("}\n");
         
@@ -543,92 +579,80 @@ public class SdkGeneratorMojo extends AbstractMojo {
     }
     
     /**
-     * 生成业务对象模型类
+     * 生成业务对象模型
      */
     private void generateBusinessModels(java.lang.reflect.Method method, File modelsDir) throws Exception {
-        Set<Class<?>> businessClasses = new HashSet<>();
-        
-        // 分析方法参数中的自定义类型
+        // 查找@RequestBody注解的参数
         java.lang.reflect.Parameter[] parameters = method.getParameters();
         for (java.lang.reflect.Parameter parameter : parameters) {
-            Class<?> paramType = parameter.getType();
-            collectBusinessClasses(paramType, businessClasses);
+            if (parameter.isAnnotationPresent(RequestBody.class)) {
+                Class<?> requestBodyType = parameter.getType();
+                // 递归生成所有相关的业务对象模型
+                generateNestedModels(requestBodyType, modelsDir);
+                break;
+            }
         }
         
-        // 分析返回类型中的自定义类型
-        Class<?> returnType = method.getReturnType();
-        collectBusinessClasses(returnType, businessClasses);
-        
-        // 为所有收集到的自定义类型生成模型类
-        for (Class<?> businessClass : businessClasses) {
-            String className = businessClass.getSimpleName();
-            generateBusinessModelClass(businessClass, className, modelsDir);
-        }
+        // 处理返回类型
+        generateNestedModels(method.getReturnType(), modelsDir);
     }
     
     /**
-     * 收集业务对象类
+     * 递归生成嵌套的业务对象模型
      */
-    private void collectBusinessClasses(Class<?> type, Set<Class<?>> businessClasses) {
-        // 如果是基本类型或java.lang包下的类型，跳过
-        if (type == null || type.isPrimitive() || type.getName().startsWith("java.lang.") || 
-            type.getName().startsWith("java.util.") || type.getName().startsWith("java.time.")) {
+    private void generateNestedModels(Type type, File modelsDir) throws Exception {
+        // 如果是Class类型
+        if (type instanceof Class<?>) {
+            Class<?> clazz = (Class<?>) type;
+            
+            // 如果是基本类型、包装类型或已经是Java标准库类型，跳过
+            if (clazz.isPrimitive() || clazz.getName().startsWith("java.lang.") || 
+                clazz.getName().startsWith("java.util.") || clazz.getName().startsWith("java.time.")) {
+                return;
+            }
+            
+            // 如果是数组，递归处理元素类型
+            if (clazz.isArray()) {
+                generateNestedModels(clazz.getComponentType(), modelsDir);
+                return;
+            }
+            
+            // 生成业务对象模型
+            generateBusinessModelClass(clazz, modelsDir);
             return;
         }
         
-        // 获取类名
-        String simpleName = type.getSimpleName();
-        
-        // 如果不是请求类或响应类，添加到业务类集合
-        if (!simpleName.endsWith("Request") && !simpleName.endsWith("Response")) {
-            businessClasses.add(type);
-        }
+        // 如果是泛型类型，递归处理所有泛型参数
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+            for (Type actualTypeArgument : actualTypeArguments) {
+                generateNestedModels(actualTypeArgument, modelsDir);
+            }
             
-        // 分析当前类型的字段（无论是否是请求/响应类，都需要分析字段以提取业务对象）
-        java.lang.reflect.Field[] fields = type.getDeclaredFields();
-        for (java.lang.reflect.Field field : fields) {
-            Class<?> fieldType = field.getType();
-            
-            // 如果是数组类型，分析其元素类型
-            if (fieldType.isArray()) {
-                collectBusinessClasses(fieldType.getComponentType(), businessClasses);
-            }
-            // 如果是集合类型，分析其泛型参数
-            else if (java.util.Collection.class.isAssignableFrom(fieldType)) {
-                java.lang.reflect.Type genericType = field.getGenericType();
-                if (genericType instanceof java.lang.reflect.ParameterizedType) {
-                    java.lang.reflect.ParameterizedType paramType = (java.lang.reflect.ParameterizedType) genericType;
-                    java.lang.reflect.Type[] typeArguments = paramType.getActualTypeArguments();
-                    for (java.lang.reflect.Type typeArg : typeArguments) {
-                        if (typeArg instanceof Class) {
-                            collectBusinessClasses((Class<?>) typeArg, businessClasses);
-                        }
-                    }
-                }
-            }
-            // 否则，直接收集字段类型
-            else {
-                collectBusinessClasses(fieldType, businessClasses);
-            }
+            // 处理原始类型
+            Type rawType = parameterizedType.getRawType();
+            generateNestedModels(rawType, modelsDir);
         }
     }
     
     /**
-     * 生成单个业务对象模型类
+     * 生成业务对象模型类
      */
-    private void generateBusinessModelClass(Class<?> businessClass, String className, File modelsDir) throws Exception {
+    private void generateBusinessModelClass(Class<?> type, File modelsDir) throws Exception {
+        String className = type.getSimpleName();
         File outputFile = new File(modelsDir, className + ".java");
         
         // 如果文件已存在，跳过
         if (outputFile.exists()) {
-            getLog().info("业务对象类已存在，跳过生成: " + outputFile.getAbsolutePath());
+            getLog().info("业务对象模型类已存在，跳过生成: " + outputFile.getAbsolutePath());
             return;
         }
         
         StringBuilder modelCode = new StringBuilder();
         modelCode.append("package ").append(packageName).append(".models;\n\n");
         modelCode.append("import java.io.Serializable;\n");
-        modelCode.append("import com.fasterxml.jackson.annotation.JsonProperty;\n");
+        modelCode.append("\n");
         modelCode.append("import java.util.*;\n\n");
         
         modelCode.append("/**\n");
@@ -637,11 +661,12 @@ public class SdkGeneratorMojo extends AbstractMojo {
         modelCode.append("public class ").append(className).append(" implements Serializable {\n");
         modelCode.append("    private static final long serialVersionUID = 1L;\n\n");
         
-        // 获取业务类的所有字段
-        java.lang.reflect.Field[] fields = businessClass.getDeclaredFields();
+        // 获取所有字段
+        java.lang.reflect.Field[] fields = type.getDeclaredFields();
         for (java.lang.reflect.Field field : fields) {
-            // 跳过静态字段
-            if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+            // 跳过静态字段和 transient 字段
+            if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) || 
+                java.lang.reflect.Modifier.isTransient(field.getModifiers())) {
                 continue;
             }
             
@@ -650,14 +675,14 @@ public class SdkGeneratorMojo extends AbstractMojo {
             String fieldTypeName = getFieldTypeName(fieldType);
             
             // 添加字段
-            modelCode.append("    @JsonProperty(\"").append(fieldName).append("\")\n");
             modelCode.append("    private ").append(fieldTypeName).append(" ").append(fieldName).append(";\n\n");
         }
         
         // 添加getter和setter
         for (java.lang.reflect.Field field : fields) {
-            // 跳过静态字段
-            if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+            // 跳过静态字段和 transient 字段
+            if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) || 
+                java.lang.reflect.Modifier.isTransient(field.getModifiers())) {
                 continue;
             }
             
@@ -686,31 +711,49 @@ public class SdkGeneratorMojo extends AbstractMojo {
         // 写入文件
         java.nio.file.Files.write(outputFile.toPath(), modelCode.toString().getBytes("UTF-8"));
         getLog().info("生成业务对象模型类: " + outputFile.getAbsolutePath());
+        
+        // 递归生成所有字段类型的模型
+        for (java.lang.reflect.Field field : fields) {
+            Type fieldType = field.getGenericType();
+            if (fieldType instanceof Class) {
+                generateNestedModels((Class<?>) fieldType, modelsDir);
+            } else if (fieldType instanceof ParameterizedType) {
+                ParameterizedType parameterizedType = (ParameterizedType) fieldType;
+                Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+                for (Type actualTypeArgument : actualTypeArguments) {
+                    if (actualTypeArgument instanceof Class) {
+                        generateNestedModels((Class<?>) actualTypeArgument, modelsDir);
+                    } else if (actualTypeArgument instanceof ParameterizedType) {
+                        Class<?> rawType = (Class<?>) ((ParameterizedType) actualTypeArgument).getRawType();
+                        generateNestedModels(rawType, modelsDir);
+                    }
+                }
+            }
+        }
     }
     
     /**
-     * 获取完整的字段类型名称，包括泛型参数
+     * 获取字段类型的字符串表示
      */
     private String getFieldTypeName(Type type) {
         if (type instanceof Class) {
             Class<?> clazz = (Class<?>) type;
+            if (clazz.isArray()) {
+                return getFieldTypeName(clazz.getComponentType()) + "[]";
+            }
             return clazz.getSimpleName();
         } else if (type instanceof ParameterizedType) {
-            ParameterizedType paramType = (ParameterizedType) type;
-            Type rawType = paramType.getRawType();
-            Type[] typeArgs = paramType.getActualTypeArguments();
-            
-            StringBuilder typeName = new StringBuilder();
-            typeName.append(getFieldTypeName(rawType));
-            typeName.append("<");
-            
-            for (int i = 0; i < typeArgs.length; i++) {
-                if (i > 0) typeName.append(", ");
-                typeName.append(getFieldTypeName(typeArgs[i]));
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            Class<?> rawType = (Class<?>) parameterizedType.getRawType();
+            StringBuilder sb = new StringBuilder(rawType.getSimpleName());
+            sb.append("<");
+            Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+            for (int i = 0; i < actualTypeArguments.length; i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(getFieldTypeName(actualTypeArguments[i]));
             }
-            
-            typeName.append(">");
-            return typeName.toString();
+            sb.append(">");
+            return sb.toString();
         }
         return type.toString();
     }
@@ -724,16 +767,16 @@ public class SdkGeneratorMojo extends AbstractMojo {
         }
         return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
-
+    
     /**
-     * 检查方法是否是请求映射方法
+     * 检查方法是否是RequestMapping方法
      */
     private boolean isRequestMappingMethod(java.lang.reflect.Method method) {
         return method.isAnnotationPresent(RequestMapping.class) ||
-                method.isAnnotationPresent(GetMapping.class) ||
-                method.isAnnotationPresent(PostMapping.class) ||
-                method.isAnnotationPresent(PutMapping.class) ||
-                method.isAnnotationPresent(DeleteMapping.class) ||
-                method.isAnnotationPresent(PatchMapping.class);
+               method.isAnnotationPresent(GetMapping.class) ||
+               method.isAnnotationPresent(PostMapping.class) ||
+               method.isAnnotationPresent(PutMapping.class) ||
+               method.isAnnotationPresent(DeleteMapping.class) ||
+               method.isAnnotationPresent(PatchMapping.class);
     }
 }

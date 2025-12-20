@@ -10,46 +10,23 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service
 public class UserService {
     
-    private final Map<Long, User> userMap = new ConcurrentHashMap<>();
     private final AtomicLong counter = new AtomicLong();
-    
-    public UserService() {
-        // 初始化一些用户数据
-        userMap.put(counter.incrementAndGet(), new User());
-        userMap.put(counter.incrementAndGet(), new User());
-        userMap.put(counter.incrementAndGet(), new User());
-    }
+
     
     public List<User> getAllUsers() {
-        User user = new User();
-        user.setId(1L);
-        user.setName("aaa");
-        user.setEmail("20320@qq.com");
-        return Collections.singletonList(user);
-    }
-    
-    public Optional<User> getUserById(Long id) {
-        return Optional.ofNullable(userMap.get(id));
-    }
-    
-    public User createUser(User user) {
-        Long id = counter.incrementAndGet();
-        user.setId(id);
-        userMap.put(id, user);
-        return user;
-    }
-    
-    public Optional<User> updateUser(Long id, User user) {
-        if (userMap.containsKey(id)) {
-            user.setId(id);
-            userMap.put(id, user);
-            return Optional.of(user);
-        } else {
-            return Optional.empty();
-        }
-    }
-    
-    public boolean deleteUser(Long id) {
-        return userMap.remove(id) != null;
+        List<User> users = new ArrayList<>();
+        User user1 = new User();
+        user1.setId(1L);
+        user1.setName("张三");
+        user1.setEmail("20320@qq.com");
+
+        User user2 = new User();
+        user2.setId(1L);
+        user2.setName("李四");
+        user2.setEmail("10320@qq.com");
+
+        users.add(user1);
+        users.add(user2);
+        return users;
     }
 }

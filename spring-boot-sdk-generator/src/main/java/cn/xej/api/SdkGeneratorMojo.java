@@ -53,6 +53,12 @@ public class SdkGeneratorMojo extends AbstractMojo {
     @Parameter(property = "controllerPackage", defaultValue = "cn.xej.api.controller")
     private String controllerPackage;
 
+    // 用于收集所有需要处理的方法，避免重复生成模型类
+    private final Set<java.lang.reflect.Method> methods = new HashSet<>();
+    
+    // 用于收集所有需要生成的模型类，避免重复生成
+    private final Set<Class<?>> models = new HashSet<>();
+    
     /**
      * 插件的主要执行方法
      *
@@ -191,6 +197,13 @@ public class SdkGeneratorMojo extends AbstractMojo {
      * 生成统一的ApiClient类
      */
     private void generateApiClient(Set<Class<?>> controllerClasses, File outputDir, File modelsDir) throws Exception {
+        // 先收集所有需要处理的方法
+        collectAllMethods(controllerClasses);
+        
+        // 统一生成所有模型类，避免重复生成
+        generateAllModelClasses(modelsDir);
+        
+        // 然后生成ApiClient类
         String fileName = "ApiClient.java";
         File outputFile = new File(outputDir, fileName);
 
@@ -239,7 +252,7 @@ public class SdkGeneratorMojo extends AbstractMojo {
         // 生成所有Controller的方法
         for (Class<?> controllerClass : controllerClasses) {
             getLog().info("处理Controller类: " + controllerClass.getName());
-            generateControllerMethods(controllerClass, apiClientCode, modelsDir);
+            generateControllerApiMethods(controllerClass, apiClientCode);
         }
 
         apiClientCode.append("}");
@@ -248,11 +261,65 @@ public class SdkGeneratorMojo extends AbstractMojo {
         java.nio.file.Files.write(outputFile.toPath(), apiClientCode.toString().getBytes("UTF-8"));
         getLog().info("生成ApiClient文件: " + outputFile.getAbsolutePath());
     }
+    
+    /**
+     * 收集所有需要处理的方法
+     */
+    private void collectAllMethods(Set<Class<?>> controllerClasses) {
+        methods.clear(); // 清空之前的方法列表
+        
+        for (Class<?> controllerClass : controllerClasses) {
+            for (java.lang.reflect.Method method : controllerClass.getDeclaredMethods()) {
+                if (method.isAnnotationPresent(PostMapping.class)) {
+                    methods.add(method);
+                    getLog().info("收集方法: " + method.getName());
+                }
+            }
+        }
+    }
+    
+    /**
+     * 统一生成所有模型类
+     */
+    private void generateAllModelClasses(File modelsDir) throws Exception {
+        // 第一步：收集所有需要生成的模型类
+        getLog().info("开始收集所有需要生成的模型类...");
+        
+        // 清空模型集合
+        models.clear();
+        
+        // 收集所有方法的请求和响应模型的嵌套类
+        for (java.lang.reflect.Method method : methods) {
+            // 查找@RequestBody注解的参数
+            java.lang.reflect.Parameter[] parameters = method.getParameters();
+            for (java.lang.reflect.Parameter parameter : parameters) {
+                if (parameter.isAnnotationPresent(RequestBody.class)) {
+                    collectNestedModels(parameter.getType());
+                }
+            }
+            
+            // 收集返回类型的嵌套类
+            collectNestedModels(method.getReturnType());
+        }
+        
+        // 第二步：生成所有请求和响应模型类
+        getLog().info("开始生成所有请求和响应模型类...");
+        for (java.lang.reflect.Method method : methods) {
+            getLog().info("为方法生成模型类: " + method.getName());
+            generateModelClasses(method, modelsDir);
+        }
+        
+        // 第三步：统一生成所有业务对象模型类
+        getLog().info("开始统一生成所有业务对象模型类...");
+        for (Class<?> model : models) {
+            generateBusinessModelClass(model, modelsDir);
+        }
+    }
 
     /**
-     * 生成Controller的所有方法到ApiClient中
+     * 生成Controller的所有方法到ApiClient中（仅生成API方法，不生成模型类）
      */
-    private void generateControllerMethods(Class<?> controllerClass, StringBuilder apiClientCode, File modelsDir) throws Exception {
+    private void generateControllerApiMethods(Class<?> controllerClass, StringBuilder apiClientCode) throws Exception {
         // 获取类级别的@RequestMapping注解
         String classMapping = "";
         if (controllerClass.isAnnotationPresent(RequestMapping.class)) {
@@ -264,45 +331,20 @@ public class SdkGeneratorMojo extends AbstractMojo {
 
         // 生成方法
         for (java.lang.reflect.Method method : controllerClass.getDeclaredMethods()) {
-            if (isRequestMappingMethod(method)) {
-                generateMethodApi(method, classMapping, apiClientCode, modelsDir);
+            if (method.isAnnotationPresent(PostMapping.class)) {
+                generateMethodApi(method, classMapping, apiClientCode);
             }
         }
     }
 
     /**
-     * 生成API方法到ApiClient中
+     * 生成API方法到ApiClient中（仅生成API方法，不生成模型类）
      */
-    private void generateMethodApi(java.lang.reflect.Method method, String classMapping, StringBuilder apiClientCode, File modelsDir) throws Exception {
+    private void generateMethodApi(java.lang.reflect.Method method, String classMapping, StringBuilder apiClientCode) throws Exception {
         // 获取映射信息
-        String mappingValue = "";
+        PostMapping mapping = method.getAnnotation(PostMapping.class);
+        String mappingValue = mapping.value().length > 0 ? mapping.value()[0] : "";
         String httpMethod = "POST"; // 默认POST
-
-        if (method.isAnnotationPresent(RequestMapping.class)) {
-            RequestMapping mapping = method.getAnnotation(RequestMapping.class);
-            mappingValue = mapping.value().length > 0 ? mapping.value()[0] : "";
-            httpMethod = mapping.method().length > 0 ? mapping.method()[0].name() : "GET";
-        } else if (method.isAnnotationPresent(GetMapping.class)) {
-            GetMapping mapping = method.getAnnotation(GetMapping.class);
-            mappingValue = mapping.value().length > 0 ? mapping.value()[0] : "";
-            httpMethod = "GET";
-        } else if (method.isAnnotationPresent(PostMapping.class)) {
-            PostMapping mapping = method.getAnnotation(PostMapping.class);
-            mappingValue = mapping.value().length > 0 ? mapping.value()[0] : "";
-            httpMethod = "POST";
-        } else if (method.isAnnotationPresent(PutMapping.class)) {
-            PutMapping mapping = method.getAnnotation(PutMapping.class);
-            mappingValue = mapping.value().length > 0 ? mapping.value()[0] : "";
-            httpMethod = "PUT";
-        } else if (method.isAnnotationPresent(DeleteMapping.class)) {
-            DeleteMapping mapping = method.getAnnotation(DeleteMapping.class);
-            mappingValue = mapping.value().length > 0 ? mapping.value()[0] : "";
-            httpMethod = "DELETE";
-        } else if (method.isAnnotationPresent(PatchMapping.class)) {
-            PatchMapping mapping = method.getAnnotation(PatchMapping.class);
-            mappingValue = mapping.value().length > 0 ? mapping.value()[0] : "";
-            httpMethod = "PATCH";
-        }
 
         // 组合完整的URL路径
         String fullMapping = classMapping + mappingValue;
@@ -316,9 +358,6 @@ public class SdkGeneratorMojo extends AbstractMojo {
         Class<?>[] paramTypes = method.getParameterTypes();
         java.lang.reflect.Parameter[] parameters = method.getParameters();
         
-        // 生成模型类
-        generateModelClasses(method, modelsDir);
-        
         for (int i = 0; i < paramTypes.length; i++) {
             if (i > 0) apiClientCode.append(", ");
             apiClientCode.append(paramTypes[i].getSimpleName()).append(" ").append(parameters[i].getName());
@@ -327,7 +366,6 @@ public class SdkGeneratorMojo extends AbstractMojo {
         apiClientCode.append(") throws IOException {\n");
         apiClientCode.append("        String url = baseUrl + \"");
         apiClientCode.append(fullMapping);
-        apiClientCode.append("\";\n");
         apiClientCode.append("        RequestBody requestBody = null;\n");
 
         // 创建请求体
@@ -375,13 +413,10 @@ public class SdkGeneratorMojo extends AbstractMojo {
         // 生成响应模型（示例：CreateUserResponse）
         String responseClassName = capitalizeFirstLetter(methodName) + "Response";
         generateResponseModel(method, responseClassName, modelsDir);
-        
-        // 生成业务对象模型（示例：User）
-        generateBusinessModels(method, modelsDir);
     }
 
     /**
- * 生成请求模型类
+     * 生成请求模型类
      */
     private void generateRequestModel(java.lang.reflect.Method method, String className, File modelsDir) throws Exception {
         File outputFile = new File(modelsDir, className + ".java");
@@ -429,7 +464,6 @@ public class SdkGeneratorMojo extends AbstractMojo {
                 String fieldTypeName = getFieldTypeName(fieldType);
                 
                 // 添加字段
-
                 modelCode.append("    private ").append(fieldTypeName).append(" ").append(fieldName).append(";\n\n");
             }
             
@@ -458,6 +492,25 @@ public class SdkGeneratorMojo extends AbstractMojo {
                 modelCode.append("    public void set").append(capitalizedFieldName).append("(").append(fieldTypeName).append(" ").append(fieldName).append(") {\n");
                 modelCode.append("        this.").append(fieldName).append(" = ").append(fieldName).append(";\n");
                 modelCode.append("    }\n\n");
+            }
+            
+            // 递归生成所有字段类型的模型
+            for (java.lang.reflect.Field field : fields) {
+                Type fieldType = field.getGenericType();
+                if (fieldType instanceof Class) {
+                    generateNestedModels((Class<?>) fieldType, modelsDir);
+                } else if (fieldType instanceof ParameterizedType) {
+                    ParameterizedType parameterizedType = (ParameterizedType) fieldType;
+                    Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+                    for (Type actualTypeArgument : actualTypeArguments) {
+                        if (actualTypeArgument instanceof Class) {
+                            generateNestedModels((Class<?>) actualTypeArgument, modelsDir);
+                        } else if (actualTypeArgument instanceof ParameterizedType) {
+                            Class<?> rawType = (Class<?>) ((ParameterizedType) actualTypeArgument).getRawType();
+                            generateNestedModels(rawType, modelsDir);
+                        }
+                    }
+                }
             }
         } else {
             // 如果没有@RequestBody参数或参数是基本类型，生成空的请求模型
@@ -578,23 +631,58 @@ public class SdkGeneratorMojo extends AbstractMojo {
         getLog().info("生成响应模型类: " + outputFile.getAbsolutePath());
     }
     
+    
     /**
-     * 生成业务对象模型
+     * 递归收集嵌套的业务对象模型类到全局集合
      */
-    private void generateBusinessModels(java.lang.reflect.Method method, File modelsDir) throws Exception {
-        // 查找@RequestBody注解的参数
-        java.lang.reflect.Parameter[] parameters = method.getParameters();
-        for (java.lang.reflect.Parameter parameter : parameters) {
-            if (parameter.isAnnotationPresent(RequestBody.class)) {
-                Class<?> requestBodyType = parameter.getType();
-                // 递归生成所有相关的业务对象模型
-                generateNestedModels(requestBodyType, modelsDir);
-                break;
+    private void collectNestedModels(Type type) throws Exception {
+        // 如果是Class类型
+        if (type instanceof Class<?>) {
+            Class<?> clazz = (Class<?>) type;
+            
+            // 如果是基本类型、包装类型或已经是Java标准库类型，跳过
+            if (clazz.isPrimitive() || clazz.getName().startsWith("java.lang.") || 
+                clazz.getName().startsWith("java.util.") || clazz.getName().startsWith("java.time.")) {
+                return;
             }
+            
+            // 如果是数组，递归处理元素类型
+            if (clazz.isArray()) {
+                collectNestedModels(clazz.getComponentType());
+                return;
+            }
+            
+            // 如果已经在集合中，跳过
+            if (models.contains(clazz)) {
+                return;
+            }
+            
+            // 添加到全局集合
+            models.add(clazz);
+            
+            // 递归处理所有字段类型
+            java.lang.reflect.Field[] fields = clazz.getDeclaredFields();
+            for (java.lang.reflect.Field field : fields) {
+                if (!java.lang.reflect.Modifier.isStatic(field.getModifiers()) && 
+                    !java.lang.reflect.Modifier.isTransient(field.getModifiers())) {
+                    collectNestedModels(field.getGenericType());
+                }
+            }
+            return;
         }
         
-        // 处理返回类型
-        generateNestedModels(method.getReturnType(), modelsDir);
+        // 如果是泛型类型，递归处理所有泛型参数
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+            for (Type actualTypeArgument : actualTypeArguments) {
+                collectNestedModels(actualTypeArgument);
+            }
+            
+            // 处理原始类型
+            Type rawType = parameterizedType.getRawType();
+            collectNestedModels(rawType);
+        }
     }
     
     /**
@@ -765,7 +853,7 @@ public class SdkGeneratorMojo extends AbstractMojo {
         if (str == null || str.isEmpty()) {
             return str;
         }
-        return str.substring(0, 1).toUpperCase() + str.substring(1);
+        return Character.toUpperCase(str.charAt(0)) + str.substring(1);
     }
     
     /**

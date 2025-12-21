@@ -1,8 +1,6 @@
 import cn.xej.api.ApiClient;
-import cn.xej.api.models.CreateUserRequest;
-import cn.xej.api.models.CreateUserResponse;
-import cn.xej.api.models.DescribeUsersRequest;
-import cn.xej.api.models.DescribeUsersResponse;
+import cn.xej.api.models.DescribeInstancesRequest;
+import cn.xej.api.models.DescribeInstancesResponse;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -32,15 +30,28 @@ public class Main {
 //            throw new RuntimeException(e);
 //        }
 
-        CreateUserRequest req = new CreateUserRequest();
-        req.setName("张三");
-        req.setEmail("20320@qq.com");
+        // CreateUserRequest req = new CreateUserRequest();
+        // req.setName("张三");
+        // req.setEmail("20320@qq.com");
+        // try {
+        //     CreateUserResponse res = client.createUser(req);
+        //     System.out.println(res.getUserId());
+        // } catch (Exception e) {
+        //     throw new RuntimeException(e);
+        // }
+
+
+        DescribeInstancesRequest req = new DescribeInstancesRequest();
+        Set<String> instanceIds = new HashSet<>();
+        instanceIds.add("ins-123");
+        req.setInstanceIds(instanceIds);
         try {
-            CreateUserResponse res = client.createUser(req);
-            System.out.println(res.getUserId());
+            DescribeInstancesResponse res = client.describeInstances(req);
+            System.out.println(res);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+
 
     }
 

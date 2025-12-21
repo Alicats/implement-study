@@ -5,23 +5,33 @@ import java.io.Serializable;
 import java.util.*;
 
 /**
- * DescribeUsersRequest 请求模型
+ * DescribeInstancesRequest 请求模型
  */
-public class DescribeUsersRequest implements Serializable {
+public class DescribeInstancesRequest implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private Set<String> userIds;
+    private Set<String> instanceIds;
+
+    private String labelName;
 
     private Integer pageSize;
 
     private Integer pageNum;
 
-    public Set<String> getUserIds() {
-        return userIds;
+    public Set<String> getInstanceIds() {
+        return instanceIds;
     }
 
-    public void setUserIds(Set<String> userIds) {
-        this.userIds = userIds;
+    public void setInstanceIds(Set<String> instanceIds) {
+        this.instanceIds = instanceIds;
+    }
+
+    public String getLabelName() {
+        return labelName;
+    }
+
+    public void setLabelName(String labelName) {
+        this.labelName = labelName;
     }
 
     public Integer getPageSize() {

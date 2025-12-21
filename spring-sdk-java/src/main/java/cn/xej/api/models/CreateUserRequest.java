@@ -2,6 +2,7 @@ package cn.xej.api.models;
 
 import java.io.Serializable;
 
+import java.util.*;
 
 /**
  * CreateUserRequest 请求模型

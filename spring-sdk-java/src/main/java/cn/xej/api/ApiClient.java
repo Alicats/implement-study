@@ -18,6 +18,46 @@ public class ApiClient {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
     }
 
+    public CreateInstanceResponse createInstance(CreateInstanceRequest request) throws IOException {
+        String url = baseUrl + "CreateInstance";
+        RequestBody requestBody = null;
+        requestBody = RequestBody.create(objectMapper.writeValueAsString(request), MediaType.parse("application/json; charset=utf-8"));
+
+        Request.Builder okHttpRequestBuilder = new Request.Builder()
+                .url(url)
+                .method("POST", requestBody);
+        Request okHttpRequest = okHttpRequestBuilder.build();
+
+        try (Response response = okHttpClient.newCall(okHttpRequest).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Unexpected code " + response);
+            }
+
+            String responseBody = response.body().string();
+            return objectMapper.readValue(responseBody, CreateInstanceResponse.class);
+        }
+    }
+
+    public DescribeInstancesResponse describeInstances(DescribeInstancesRequest request) throws IOException {
+        String url = baseUrl + "DescribeInstances";
+        RequestBody requestBody = null;
+        requestBody = RequestBody.create(objectMapper.writeValueAsString(request), MediaType.parse("application/json; charset=utf-8"));
+
+        Request.Builder okHttpRequestBuilder = new Request.Builder()
+                .url(url)
+                .method("POST", requestBody);
+        Request okHttpRequest = okHttpRequestBuilder.build();
+
+        try (Response response = okHttpClient.newCall(okHttpRequest).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Unexpected code " + response);
+            }
+
+            String responseBody = response.body().string();
+            return objectMapper.readValue(responseBody, DescribeInstancesResponse.class);
+        }
+    }
+
     public CreateUserResponse createUser(CreateUserRequest request) throws IOException {
         String url = baseUrl + "CreateUser";
         RequestBody requestBody = null;

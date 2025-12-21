@@ -8,6 +8,7 @@
         <option value="$PROJECT_DIR$/generator-maven-plugin/pom.xml" />
         <option value="$PROJECT_DIR$/spring-boot-sdk-generator/pom.xml" />
         <option value="$PROJECT_DIR$/spring-boot-api/pom.xml" />
+        <option value="$PROJECT_DIR$/spring-sdk-java/pom.xml" />
       </list>
     </option>
   </component>

@@ -1,43 +1,43 @@
 package cn.xej.api.models;
 
 import java.io.Serializable;
-
 import java.util.*;
 
 /**
- * DescribeUsersRequest 请求模型
+ * DescribeUsersRequest 模型类
  */
 public class DescribeUsersRequest implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Set<String> userIds;
-
+    
     private Integer pageSize;
-
+    
     private Integer pageNum;
-
+    
+    
     public Set<String> getUserIds() {
         return userIds;
     }
-
+    
     public void setUserIds(Set<String> userIds) {
         this.userIds = userIds;
     }
-
+    
     public Integer getPageSize() {
         return pageSize;
     }
-
+    
     public void setPageSize(Integer pageSize) {
         this.pageSize = pageSize;
     }
-
+    
     public Integer getPageNum() {
         return pageNum;
     }
-
+    
     public void setPageNum(Integer pageNum) {
         this.pageNum = pageNum;
     }
-
+    
 }

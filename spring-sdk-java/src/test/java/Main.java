@@ -1,14 +1,13 @@
 import cn.xej.api.ApiClient;
-import cn.xej.api.models.DescribeInstancesRequest;
-import cn.xej.api.models.DescribeInstancesResponse;
+import cn.xej.api.models.CreateUserRequest;
+import cn.xej.api.models.CreateUserResponse;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.io.IOException;
 
 public class Main {
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
 //        Credential cred = new Credential(System.getenv("TENCENTCLOUD_SECRET_ID"), System.getenv("TENCENTCLOUD_SECRET_KEY"));
 //        CvmClient client = new CvmClient(cred, "ap-shanghai");
 //﻿
@@ -41,16 +40,22 @@ public class Main {
         // }
 
 
-        DescribeInstancesRequest req = new DescribeInstancesRequest();
-        Set<String> instanceIds = new HashSet<>();
-        instanceIds.add("ins-123");
-        req.setInstanceIds(instanceIds);
-        try {
-            DescribeInstancesResponse res = client.describeInstances(req);
-            System.out.println(res);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+//        DescribeInstancesRequest req = new DescribeInstancesRequest();
+//        Set<String> instanceIds = new HashSet<>();
+//        instanceIds.add("ins-123");
+//        req.setInstanceIds(instanceIds);
+//        try {
+//            DescribeInstancesResponse res = client.describeInstances(req);
+//            System.out.println(res);
+//        } catch (Exception e) {
+//            throw new RuntimeException(e);
+//        }
+
+        CreateUserRequest req = new CreateUserRequest();
+        req.setName("周宏伟");
+        req.setEmail("20320@qq.com");
+        CreateUserResponse res = client.createUser(req);
+        System.out.println(res);
 
 
     }

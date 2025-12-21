@@ -67,6 +67,13 @@
             <artifactId>reflections</artifactId>
             <version>0.10.2</version>
         </dependency>
+        
+        <!-- FreeMarker模板引擎 -->
+        <dependency>
+            <groupId>org.freemarker</groupId>
+            <artifactId>freemarker</artifactId>
+            <version>2.3.31</version>
+        </dependency>
     </dependencies>
 
     <build>

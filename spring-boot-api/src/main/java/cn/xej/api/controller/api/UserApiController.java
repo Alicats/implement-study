@@ -3,6 +3,7 @@ package cn.xej.api.controller.api;
 import cn.xej.api.request.CreateUserRequest;
 import cn.xej.api.request.DescribeUsersRequest;
 import cn.xej.api.response.CreateUserResponse;
+import cn.xej.api.response.DescribeUsersResponse;
 import cn.xej.api.service.UserService;
 import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import cn.xej.api.request.DescribeUsersResponse;
+
 import cn.xej.api.model.User;
 
 import javax.validation.Valid;

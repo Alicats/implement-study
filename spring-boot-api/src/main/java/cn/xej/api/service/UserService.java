@@ -4,7 +4,6 @@ import cn.xej.api.model.User;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Service
@@ -16,12 +15,12 @@ public class UserService {
     public List<User> getAllUsers() {
         List<User> users = new ArrayList<>();
         User user1 = new User();
-        user1.setId(1L);
+        user1.setUuid(UUID.randomUUID().toString());
         user1.setName("张三");
         user1.setEmail("20320@qq.com");
 
         User user2 = new User();
-        user2.setId(1L);
+        user2.setUuid(UUID.randomUUID().toString());
         user2.setName("李四");
         user2.setEmail("10320@qq.com");
 

@@ -1,6 +1,5 @@
 package cn.xej.api.sdk.java;
 
-import org.apache.maven.plugin.logging.Log;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -18,18 +17,18 @@ import java.util.Set;
  */
 public class JavaModelCollector {
 
-    private final Log log;
     private final Set<MethodInfo> methodInfoRegistry;
     private final Set<ModelInfo> modelInfoRegistry;
     private final Set<Class<?>> modelRegistry;
     
 
-    public JavaModelCollector(Log log) {
-        this.log = log;
+    public JavaModelCollector() {
         this.methodInfoRegistry = new HashSet<>();
         this.modelInfoRegistry = new HashSet<>();
         this.modelRegistry = new HashSet<>();
     }
+
+    
 
     /**
      * 收集方法的请求和响应模型
@@ -90,7 +89,6 @@ public class JavaModelCollector {
 
             // 注册模型
             modelRegistry.add(clazz);
-            log.debug("注册模型: " + clazz.getName());
 
             // 处理数组类型
             if (clazz.isArray()) {
@@ -121,7 +119,6 @@ public class JavaModelCollector {
                     }
                 }
             } catch (Exception e) {
-                log.warn("处理类字段时出错: " + clazz.getName(), e);
             }
             return;
         }

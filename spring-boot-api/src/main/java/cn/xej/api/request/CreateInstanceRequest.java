@@ -10,4 +10,5 @@ public class CreateInstanceRequest {
     public String password;
     public String ipv4;
     public List<Disk> disks;
+    public Boolean enableIpForward = false;
 }

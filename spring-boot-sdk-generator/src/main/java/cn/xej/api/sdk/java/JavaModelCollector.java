@@ -50,7 +50,7 @@ public class JavaModelCollector {
         Parameter[] parameters = method.getParameters();
         for (Parameter parameter : parameters) {
             if (parameter.isAnnotationPresent(RequestBody.class)) {
-                collectNestedModels(parameter.getType());
+                collectNestedModels(parameter.getType(), false);
                 break;
             }
         }
@@ -61,14 +61,14 @@ public class JavaModelCollector {
      * @param method API方法
      */
     private void collectReturnType(java.lang.reflect.Method method) {
-        collectNestedModels(method.getGenericReturnType());
+        collectNestedModels(method.getGenericReturnType(), true);
     }
 
     /**
      * 递归收集嵌套模型
      * @param type 类型
      */
-    public void collectNestedModels(Type type) {
+    public void collectNestedModels(Type type, boolean addRequestId) {
         if (type == null) {
             return;
         }
@@ -92,16 +92,18 @@ public class JavaModelCollector {
 
             // 处理数组类型
             if (clazz.isArray()) {
-                collectNestedModels(clazz.getComponentType());
+                collectNestedModels(clazz.getComponentType(), false);
                 return;
             }
 
             // 递归处理字段类型
             try {
                 // 创建模型信息对象
-            ModelInfo modelInfo = new ModelInfo();
-            modelInfo.setClassName(clazz.getSimpleName());
-            
+                ModelInfo modelInfo = new ModelInfo();
+                modelInfo.setClassName(clazz.getSimpleName());
+                if (addRequestId) {
+                    modelInfo.addField(new ModelInfo.FieldInfo("requestId", "String"));
+                }
                 Field[] fields = clazz.getDeclaredFields();
                 for (Field field : fields) {
                     if (!field.isSynthetic() && !java.lang.reflect.Modifier.isStatic(field.getModifiers()) &&
@@ -115,7 +117,7 @@ public class JavaModelCollector {
                         modelInfo.addField(new ModelInfo.FieldInfo(fieldName, fieldTypeName));
                         modelInfoRegistry.add(modelInfo);
 
-                        collectNestedModels(field.getGenericType());
+                        collectNestedModels(field.getGenericType(), false);
                     }
                 }
             } catch (Exception e) {
@@ -130,12 +132,12 @@ public class JavaModelCollector {
             // 处理所有泛型参数
             Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
             for (Type actualTypeArgument : actualTypeArguments) {
-                collectNestedModels(actualTypeArgument);
+                collectNestedModels(actualTypeArgument, false);
             }
 
             // 处理原始类型
             Type rawType = parameterizedType.getRawType();
-            collectNestedModels(rawType);
+            collectNestedModels(rawType, false);
         }
     }
 

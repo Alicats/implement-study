@@ -28,6 +28,8 @@ public class InstanceApiController {
     @PostMapping("CreateInstance")
     public CreateInstanceResponse createInstance(@Valid @RequestBody CreateInstanceRequest request) {
         log.info("api create instance request:{}", JSON.toJSONString(request));
+        int i = 1 / 0;
+//        throw new RuntimeException("fail");
         return new CreateInstanceResponse("alicat-123");
     }
 

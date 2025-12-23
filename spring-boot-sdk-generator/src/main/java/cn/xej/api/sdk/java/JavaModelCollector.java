@@ -165,7 +165,7 @@ public class JavaModelCollector {
     }
 
     public void registerMethod(Method method) {
-         MethodInfo methodModel = new MethodInfo();
+        MethodInfo methodModel = new MethodInfo();
         
         // 获取映射信息
         PostMapping mapping = method.getAnnotation(PostMapping.class);

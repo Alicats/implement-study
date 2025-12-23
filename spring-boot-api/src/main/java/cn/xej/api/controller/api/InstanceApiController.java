@@ -1,5 +1,6 @@
 package cn.xej.api.controller.api;
 
+import cn.xej.api.exception.OnconsoleException;
 import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,9 +28,11 @@ public class InstanceApiController {
 
     @PostMapping("CreateInstance")
     public CreateInstanceResponse createInstance(@Valid @RequestBody CreateInstanceRequest request) {
-        log.info("api create instance request:{}", JSON.toJSONString(request));
-        int i = 1 / 0;
-//        throw new RuntimeException("fail");
+        // log.info("api create instance request:{}", JSON.toJSONString(request));
+        if (request.bandwidth > 1000) {
+            log.info("api create instance bandwidth fail");
+            throw new OnconsoleException(400, "INVALID_PARAMETER_BANDWIDTH_EXCEED", "The parameter value 'bandwidth' exceeds the maximum limitation: `{}` Mbps", request.bandwidth);
+        }
         return new CreateInstanceResponse("alicat-123");
     }
 

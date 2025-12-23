@@ -1,18 +1,21 @@
 package cn.xej.api.models;
 
+import cn.xej.api.common.AbstractModel;
+
 import java.io.Serializable;
-import java.util.*;
 
 /**
  * CreateInstanceRequest 模型类
  */
-public class CreateInstanceRequest implements Serializable {
+public class CreateInstanceRequest  extends AbstractModel implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String labelName;
     
     private String instanceTypeId;
-    
+
+    private Integer bandwidth;
+
     private String password;
     
     private String ipv4;
@@ -33,7 +36,15 @@ public class CreateInstanceRequest implements Serializable {
     public void setInstanceTypeId(String instanceTypeId) {
         this.instanceTypeId = instanceTypeId;
     }
-    
+
+    public Integer getBandwidth() {
+        return bandwidth;
+    }
+
+    public void setBandwidth(Integer bandwidth) {
+        this.bandwidth = bandwidth;
+    }
+
     public String getPassword() {
         return password;
     }

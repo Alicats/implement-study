@@ -1,12 +1,13 @@
 package ${packageName}.models;
 
 import java.io.Serializable;
+import cn.xej.api.common.AbstractModel;
 import java.util.*;
 
 /**
  * ${model.className} 模型类
  */
-public class ${model.className} implements Serializable {
+public class ${model.className} extends AbstractModel implements Serializable {
     private static final long serialVersionUID = 1L;
 
     <#if model.hasFields>

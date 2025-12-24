@@ -1,12 +1,13 @@
 package cn.xej.api.models;
 
 import java.io.Serializable;
+import cn.xej.api.common.AbstractModel;
 import java.util.*;
 
 /**
  * Instance 模型类
  */
-public class Instance implements Serializable {
+public class Instance extends AbstractModel implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String uuid;

@@ -32,8 +32,9 @@ public class ApiSDKException extends RuntimeException {
     @Override
     public String toString() {
         return "ApiSDKException{" +
-                "requestId='" + requestId + '\'' +
-                ", errorCode='" + errorCode + '\'' +
+                "message='" + getMessage() + "'" +
+                ", errorCode='" + errorCode + "'" +
+                ", requestId='" + requestId + "'" +
                 '}';
     }
 }

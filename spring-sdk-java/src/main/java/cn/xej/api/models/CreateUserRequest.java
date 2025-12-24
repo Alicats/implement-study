@@ -5,25 +5,15 @@ import cn.xej.api.common.AbstractModel;
 import java.util.*;
 
 /**
- * User 模型类
+ * CreateUserRequest 模型类
  */
-public class User extends AbstractModel implements Serializable {
+public class CreateUserRequest extends AbstractModel implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private String uuid;
-    
     private String name;
     
     private String email;
     
-    
-    public String getUuid() {
-        return uuid;
-    }
-    
-    public void setUuid(String uuid) {
-        this.uuid = uuid;
-    }
     
     public String getName() {
         return name;

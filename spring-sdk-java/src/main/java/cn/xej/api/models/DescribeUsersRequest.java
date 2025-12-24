@@ -5,34 +5,24 @@ import cn.xej.api.common.AbstractModel;
 import java.util.*;
 
 /**
- * DescribeInstancesRequest 模型类
+ * DescribeUsersRequest 模型类
  */
-public class DescribeInstancesRequest extends AbstractModel implements Serializable {
+public class DescribeUsersRequest extends AbstractModel implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private Set<String> instanceIds;
-    
-    private String labelName;
+    private Set<String> userIds;
     
     private Integer pageSize;
     
     private Integer pageNum;
     
     
-    public Set<String> getInstanceIds() {
-        return instanceIds;
+    public Set<String> getUserIds() {
+        return userIds;
     }
     
-    public void setInstanceIds(Set<String> instanceIds) {
-        this.instanceIds = instanceIds;
-    }
-    
-    public String getLabelName() {
-        return labelName;
-    }
-    
-    public void setLabelName(String labelName) {
-        this.labelName = labelName;
+    public void setUserIds(Set<String> userIds) {
+        this.userIds = userIds;
     }
     
     public Integer getPageSize() {

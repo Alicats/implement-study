@@ -1,5 +1,6 @@
 import cn.xej.api.ApiClient;
 import cn.xej.api.common.ApiSDKException;
+import cn.xej.api.common.Credential;
 import cn.xej.api.models.CreateInstanceRequest;
 import cn.xej.api.models.CreateInstanceResponse;
 
@@ -7,13 +8,13 @@ public class Main {
 
 
     public static void main(String[] args) {
-
-        ApiClient client = new ApiClient("http://localhost:8080");
+        Credential cred = new Credential("alicat", "123456");
+        ApiClient client = new ApiClient(cred);
         CreateInstanceRequest req = new CreateInstanceRequest();
         req.setInstanceTypeId("xx");
         req.setIpv4("10.0.0.1");
         req.setLabelName("alicat-123");
-        req.setBandwidth(1001);
+        req.setBandwidth(999);
         req.setPassword("123456");
         try {
             CreateInstanceResponse res = client.createInstance(req);

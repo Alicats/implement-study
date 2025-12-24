@@ -165,16 +165,12 @@ public class JavaModelCollector {
     }
 
     public void registerMethod(Method method) {
-        MethodInfo methodModel = new MethodInfo();
+        MethodInfo methodInfo = new MethodInfo();
         
         // 获取映射信息
         PostMapping mapping = method.getAnnotation(PostMapping.class);
-        String mappingValue = mapping.value().length > 0 ? mapping.value()[0] : "";
-        String httpMethod = "POST"; // 默认POST
+        String fullMapping = mapping.value().length > 0 ? mapping.value()[0] : "";
 
-        // 组合完整的URL路径
-        String fullMapping = mappingValue;
-        
         // 设置方法基本信息
         String methodName = method.getName();
         String returnType = method.getReturnType().getSimpleName();
@@ -189,23 +185,12 @@ public class JavaModelCollector {
         }
         String parametersStr = paramsBuilder.toString();
         
-        // 生成请求体代码
-        StringBuilder requestBodyBuilder = new StringBuilder();
-        if (paramTypes.length > 0) {
-            requestBodyBuilder.append("        requestBody = RequestBody.create(");
-            requestBodyBuilder.append("objectMapper.writeValueAsString(");
-            requestBodyBuilder.append(parameters[0].getName());
-            requestBodyBuilder.append("), MediaType.parse(\"application/json; charset=utf-8\"));\n\n");
-        }
-        
         // 设置方法模型属性
-        methodModel.setReturnType(returnType);
-        methodModel.setMethodName(methodName);
-        methodModel.setFullMapping(fullMapping);
-        methodModel.setHttpMethod(httpMethod);
-        methodModel.setParameters(parametersStr);
-        methodModel.setRequestBodyCode(requestBodyBuilder.toString());
-        methodInfoRegistry.add(methodModel);
+        methodInfo.setReturnType(returnType);
+        methodInfo.setMethodName(methodName);
+        methodInfo.setFullMapping(fullMapping);
+        methodInfo.setParameters(parametersStr);
+        methodInfoRegistry.add(methodInfo);
     }
 
     public Set<MethodInfo> getCollectedMethods() {

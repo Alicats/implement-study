@@ -5,14 +5,14 @@ import cn.xej.api.common.AbstractModel;
 import java.util.*;
 
 /**
- * DescribeInstancesResponse 模型类
+ * DescribeUsersResponse 模型类
  */
-public class DescribeInstancesResponse extends AbstractModel implements Serializable {
+public class DescribeUsersResponse extends AbstractModel implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String requestId;
     
-    private List<Instance> instances;
+    private List<User> userSet;
     
     private Integer totalCount;
     
@@ -25,12 +25,12 @@ public class DescribeInstancesResponse extends AbstractModel implements Serializ
         this.requestId = requestId;
     }
     
-    public List<Instance> getInstances() {
-        return instances;
+    public List<User> getUserSet() {
+        return userSet;
     }
     
-    public void setInstances(List<Instance> instances) {
-        this.instances = instances;
+    public void setUserSet(List<User> userSet) {
+        this.userSet = userSet;
     }
     
     public Integer getTotalCount() {

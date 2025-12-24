@@ -5,14 +5,14 @@ import cn.xej.api.common.AbstractModel;
 import java.util.*;
 
 /**
- * CreateInstanceResponse 模型类
+ * CreateUserResponse 模型类
  */
-public class CreateInstanceResponse extends AbstractModel implements Serializable {
+public class CreateUserResponse extends AbstractModel implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String requestId;
     
-    private String instanceId;
+    private String userId;
     
     
     public String getRequestId() {
@@ -23,12 +23,12 @@ public class CreateInstanceResponse extends AbstractModel implements Serializabl
         this.requestId = requestId;
     }
     
-    public String getInstanceId() {
-        return instanceId;
+    public String getUserId() {
+        return userId;
     }
     
-    public void setInstanceId(String instanceId) {
-        this.instanceId = instanceId;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
     
 }

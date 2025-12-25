@@ -96,7 +96,6 @@ public abstract class AbstractClient {
         
         try {
             String signature = hmac256(credential.getSecretKey(), stringToSign);
-            
             // 4. 构造 Authorization 头
             // 格式参考：TC3-HMAC-SHA256 Credential=ID/..., SignedHeaders=..., Signature=...
             // 这里简化为直接放 Token 或标准 Auth 头
@@ -132,7 +131,7 @@ public abstract class AbstractClient {
     // 🔁 核心：统一执行 + 重试
     private <T> T executeWithRetry(String actionName, Supplier<T> action) throws ApiSDKException {
         // 根据actionName动态配置重试策略
-        int maxAttempts = 1; // 默认不重试
+        int maxAttempts = 2; // 默认不重试
         if (actionName.startsWith("Describe") || actionName.startsWith("Inquiry")) {
             maxAttempts = 3; // Describe和Inquiry开头的action重试3次
         }
@@ -187,7 +186,7 @@ public abstract class AbstractClient {
             // 业务项目报错code
             Map<String, Object> errorResponse = readValue(response.body().string(), Map.class);
             String errorCode = (String) errorResponse.get("code"); 
-            String errorMsg = (String) errorResponse.get("msgTemplate"); 
+            String errorMsg = (String) errorResponse.get("message"); 
             throw new ApiSDKException(errorMsg, "", errorCode);
         }
     }

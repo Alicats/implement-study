@@ -36,7 +36,7 @@ public class AuthFilter extends OncePerRequestFilter {
         try {
             // 1. 获取Authorization头
             String authHeader = customRequest.getHeader("Authorization");
-            if (authHeader == null || !authHeader.startsWith("TC3-HMAC-SHA256 ")) {
+            if (authHeader == null || !authHeader.startsWith("HMAC-SHA256 ")) {
                 sendUnauthorizedResponse(response, "Invalid authorization header");
                 return;
             }
@@ -66,7 +66,7 @@ public class AuthFilter extends OncePerRequestFilter {
                 sendUnauthorizedResponse(response, "Missing required headers");
                 return;
             }
-            
+
             // 5. 获取请求体内容（使用自定义RequestWrapper可以多次读取）
             String requestBody = customRequest.getBody();
             
@@ -94,7 +94,7 @@ public class AuthFilter extends OncePerRequestFilter {
 
     private Map<String, String> parseAuthHeader(String authHeader) {
         Map<String, String> params = new TreeMap<>();
-        String authContent = authHeader.substring("TC3-HMAC-SHA256 ".length());
+        String authContent = authHeader.substring("HMAC-SHA256 ".length());
         String[] pairs = authContent.split(", ");
         for (String pair : pairs) {
             String[] keyValue = pair.split("=");
@@ -106,13 +106,32 @@ public class AuthFilter extends OncePerRequestFilter {
     }
     
     private String calculateSignature(String action, String timestamp, String payload) throws NoSuchAlgorithmException, InvalidKeyException {
-        // 计算签名，与SDK中的逻辑保持一致
-        String stringToSign = "POST" + action + timestamp + payload;
+        // 计算请求体哈希
+        String hashedRequestPayload = sha256Hex(payload);
+        // 构建签名摘要字符串
+        String stringToSign = String.format("%s\n%s\n%s\n%s", "POST", action, timestamp, hashedRequestPayload);
+        // 计算签名
         Mac mac = Mac.getInstance("HmacSHA256");
         SecretKeySpec secretKeySpec = new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), mac.getAlgorithm());
         mac.init(secretKeySpec);
         byte[] hash = mac.doFinal(stringToSign.getBytes(StandardCharsets.UTF_8));
         return bytesToHex(hash);
+    }
+    
+    /**
+     * SHA256 哈希计算
+     *
+     * @param data 输入数据
+     * @return 十六进制格式的哈希值
+     */
+    private String sha256Hex(String data) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(data.getBytes(StandardCharsets.UTF_8));
+            return bytesToHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 algorithm not found", e);
+        }
     }
     
     private String bytesToHex(byte[] bytes) {

@@ -1,8 +1,12 @@
+import java.util.HashSet;
+import java.util.Set;
+
 import cn.xej.api.ApiClient;
 import cn.xej.api.common.ApiSDKException;
 import cn.xej.api.common.Credential;
 import cn.xej.api.models.CreateInstanceRequest;
 import cn.xej.api.models.CreateInstanceResponse;
+import cn.xej.api.models.Disk;
 
 public class Main {
 
@@ -16,9 +20,13 @@ public class Main {
         req.setLabelName("alicat-123");
         req.setBandwidth(999);
         req.setPassword("123456");
+        Set<Disk> disks = new HashSet<>();
+        Disk disk = new Disk();
+        disks.add(disk);
+        req.setDataDisks(disks);
         try {
             CreateInstanceResponse res = client.createInstance(req);
-            System.out.println(res);
+            System.out.println(res.toString());
         } catch (ApiSDKException e) {
             System.out.println(e);
         }

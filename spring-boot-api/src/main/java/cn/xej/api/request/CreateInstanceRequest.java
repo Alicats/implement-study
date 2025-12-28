@@ -2,6 +2,7 @@ package cn.xej.api.request;
 
 import cn.xej.api.model.Disk;
 
+import javax.validation.Valid;
 import javax.validation.constraints.*;
 
 import java.util.List;
@@ -18,6 +19,7 @@ public class CreateInstanceRequest {
     public Integer bandwidth;
     public String ipv4;
     @NotEmpty(message = "dataDisks not empty")
+    @Valid
     public Set<Disk> dataDisks;
     public List<Disk> disks;
     public Boolean enableIpForward = false;

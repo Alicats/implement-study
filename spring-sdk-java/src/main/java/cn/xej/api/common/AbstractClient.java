@@ -33,7 +33,7 @@ public abstract class AbstractClient {
 
     private OkHttpClient okHttpClient() {
         return new OkHttpClient.Builder()
-                .connectTimeout(20, TimeUnit.SECONDS) // 连接超时
+                .connectTimeout(60, TimeUnit.SECONDS) // 连接超时
                 .readTimeout(20, TimeUnit.SECONDS)   // 读数据超时
                 .writeTimeout(20, TimeUnit.SECONDS)  // 写数据超时
                 .retryOnConnectionFailure(true)      // 失败重连
@@ -42,6 +42,7 @@ public abstract class AbstractClient {
 
     protected  <T> T internalRequest(AbstractModel request, String actionName, Class<T> typeOfT) throws ApiSDKException {
         return executeWithRetry(actionName, () -> {
+            Request httpRequest = null;
             try {
 
                 String url = "http://" + endpoint + actionName;
@@ -60,13 +61,37 @@ public abstract class AbstractClient {
                 // 3. 注入认证Header
                 enrichRequestWithAuth(requestBuilder, actionName, jsonBody);
 
-                Request httpRequest  = requestBuilder.build();
-                System.out.println("调用接口：" + actionName);
+                httpRequest = requestBuilder.build();
                 try (Response response = okHttpClient.newCall(httpRequest).execute()) {
-                    // 校验业务代码报错
-                    validateResponse(response);
+                    // 从响应头中获取requestId
+                    String requestId = response.header("X-TC-RequestId");
+                    
+                    int code = response.code();
+                    if (is4xx(code) || is5xx(code)) {
+                        // 业务项目报错code
+                        Map<String, Object> errorResponse = readValue(response.body().string(), Map.class);
+                        String errorCode = (String) errorResponse.get("code"); 
+                        String errorMsg = (String) errorResponse.get("message"); 
+                        throw new ApiSDKException(errorMsg, requestId, errorCode);
+                    }
+
                     String responseBody = response.body().string();
-                    return readValue(responseBody, typeOfT);
+                    
+                    // 反序列化响应体
+                    T result = readValue(responseBody, typeOfT);
+                    
+                    // 如果结果对象有setRequestId方法，注入requestId
+                    if (result != null) {
+                        try {
+                            java.lang.reflect.Method setRequestIdMethod = result.getClass().getMethod("setRequestId", String.class);
+                            setRequestIdMethod.invoke(result, requestId);
+                        } catch (Exception e) {
+                            // 如果没有setRequestId方法，忽略
+                            System.out.println("Warning: Result object does not have setRequestId method");
+                        }
+                    }
+                    
+                    return result;
                 }
             } catch (ApiSDKException e) {
                 // 如果已经是ApiSDKException，直接重新抛出，保留原始的errorCode和requestId
@@ -75,8 +100,9 @@ public abstract class AbstractClient {
                 // 网络IO异常，包装成 RuntimeException 供 RetryConfig 识别
                 throw new RuntimeException(e); 
             } catch (Exception e) {
-                // 其他未知异常，才包装成 ApiSDKException
-                throw new ApiSDKException(e.getMessage(), e);
+                // 注意：这里无法直接获取response，所以requestId可能为null
+                // 在实际项目中，可以考虑在请求构建时生成requestId
+                throw new ApiSDKException(e.getMessage(), "", "");
             }
         });
     }
@@ -171,23 +197,11 @@ public abstract class AbstractClient {
             }
              // 处理网络异常（还原 IO 异常）
             if (e.getCause() instanceof IOException) {
-                throw new ApiSDKException("Network error", e.getCause());
+                throw new ApiSDKException("Network error", "", "NETWORK_ERROR", e);
             }
 
             // 其他未知错误
-            throw new ApiSDKException("Request failed after retries", e);
-        }
-    }
-
-    // 🚨 统一响应校验（抛异常才能触发重试！）
-    private void validateResponse(Response response) throws IOException {
-        int code = response.code();
-        if (is4xx(code) || is5xx(code)) {
-            // 业务项目报错code
-            Map<String, Object> errorResponse = readValue(response.body().string(), Map.class);
-            String errorCode = (String) errorResponse.get("code"); 
-            String errorMsg = (String) errorResponse.get("message"); 
-            throw new ApiSDKException(errorMsg, "", errorCode);
+            throw new ApiSDKException("Request failed after retries", "", "INTERNAL_ERROR", e);
         }
     }
 

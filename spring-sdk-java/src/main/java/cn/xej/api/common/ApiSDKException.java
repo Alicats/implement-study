@@ -9,6 +9,8 @@ public class ApiSDKException extends RuntimeException {
 
     public ApiSDKException(String message, Throwable cause) {
         super(message, cause);
+        this.requestId = "";
+        this.errorCode = "";
     }
 
     public ApiSDKException(String message) {
@@ -17,6 +19,12 @@ public class ApiSDKException extends RuntimeException {
 
     public ApiSDKException(String message, String requestId, String errorCode) {
         super(message);
+        this.requestId = requestId;
+        this.errorCode = errorCode;
+    }
+
+    public ApiSDKException(String message, String requestId, String errorCode, Throwable cause) {
+        super(message, cause);
         this.requestId = requestId;
         this.errorCode = errorCode;
     }

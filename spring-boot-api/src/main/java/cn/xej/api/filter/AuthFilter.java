@@ -1,6 +1,8 @@
 package cn.xej.api.filter;
 
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -19,12 +21,13 @@ import java.util.TreeMap;
 
 @Slf4j
 @Component
+@Order(2) 
 public class AuthFilter extends OncePerRequestFilter {
 
     // 假设我们知道的密钥（实际项目中应该从配置或密钥管理服务获取）
     private static final String SECRET_KEY = "123456";
     private static final String SECRET_ID = "alicat";
-
+    
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         // 使用CustomRequestWrapper包装请求，允许多次读取请求体
@@ -86,7 +89,7 @@ public class AuthFilter extends OncePerRequestFilter {
         } catch (Exception e) {
             log.error("Authentication error", e);
             sendUnauthorizedResponse(response, "Authentication failed");
-        }
+        } 
     }
 
     private Map<String, String> parseAuthHeader(String authHeader) {
